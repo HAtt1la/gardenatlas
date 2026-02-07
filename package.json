@@ -1,0 +1,22 @@
+{
+  "name": "gardenatlas",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .js"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.1.0",
+    "eslint": "^8.57.1",
+    "eslint-plugin-svelte": "^2.46.1",
+    "svelte": "^4.2.12",
+    "svelte-eslint-parser": "^1.4.1",
+    "vite": "^5.2.0"
+  },
+  "dependencies": {
+    "dexie": "^4.0.4"
+  }
+}
