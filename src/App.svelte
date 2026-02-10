@@ -4,10 +4,10 @@
   import PlantDetail from './components/PlantDetail.svelte';
   import BedDetail from './components/BedDetail.svelte';
   import Settings from './components/Settings.svelte';
-  import AddPlantForm from './components/AddPlantForm.svelte';
+  import MultiEventForm from './components/MultiEventForm.svelte';
   import SearchBar from './components/SearchBar.svelte';
   import Toast from './components/Toast.svelte';
-  import { currentView, loadPlants, navigateToMap, navigateToSettings, toasts, selectedPlant } from './lib/stores.js';
+  import { currentView, loadPlants, navigateToMap, navigateToSettings, navigateToMultiEvent, toasts, selectedPlant } from './lib/stores.js';
   import { initializeSampleData } from './lib/sampleData.js';
   import { t } from './lib/i18n.js';
 
@@ -34,6 +34,9 @@
     
     <div class="header-right">
       {#if $currentView === 'map'}
+        <button class="btn-icon" on:click={navigateToMultiEvent} aria-label="Add event to multiple plants" title="Add event to multiple plants">
+          📋
+        </button>
         <SearchBar />
       {/if}
       <button class="btn-icon" on:click={navigateToSettings} aria-label={$t('settings')}>
@@ -54,8 +57,8 @@
       {/if}
     {:else if $currentView === 'settings'}
       <Settings />
-    {:else if $currentView === 'addPlant'}
-      <AddPlantForm />
+    {:else if $currentView === 'multiEvent'}
+      <MultiEventForm />
     {/if}
   </main>
 

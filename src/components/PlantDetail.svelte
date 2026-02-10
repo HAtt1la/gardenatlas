@@ -1,14 +1,20 @@
 <script>
   import { selectedPlant, plantEvents, plantForecast, loadPlantDetails, loadPlants, showToast, navigateToMap } from '../lib/stores.js';
   import { updatePlant, addEvent, deleteEvent, deletePlant, EVENT_TYPES, PLANT_TYPES } from '../lib/db.js';
+  import { t } from '../lib/i18n.js';
   import EventForm from './EventForm.svelte';
   import PhotoGallery from './PhotoGallery.svelte';
 
   let isEditing = false;
   let editName = '';
   let editNotes = '';
+  let editEmoji = '';
   let showEventForm = false;
   let lastPlantId = null;
+
+  // Fruit emojis for tree customization
+  const fruitEmojis = ['🍎', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍒', '🍑', '🥝', '🍐', '🥭', '🍍', '🥜', '🌰', '🍂', '🌳', '🌲', '🌴', '🌵'];
+
 
   // Update edit fields when plant changes (but not while actively editing)
   $: if ($selectedPlant && !isEditing) {
@@ -17,6 +23,7 @@
     }
     editName = $selectedPlant.name;
     editNotes = $selectedPlant.notes || '';
+    editEmoji = $selectedPlant.emoji || '';
   }
 
   $: plantType = PLANT_TYPES.find(t => t.id === $selectedPlant?.type);
@@ -26,10 +33,15 @@
   $: canDelete = $selectedPlant?.type === 'bed-plant' || $selectedPlant?.type === 'other';
 
   async function saveChanges() {
-    await updatePlant($selectedPlant.id, {
+    const updateData = {
       name: editName,
       notes: editNotes
-    });
+    };
+    // Only save emoji for fruit trees
+    if ($selectedPlant?.type === 'fruit' && editEmoji) {
+      updateData.emoji = editEmoji;
+    }
+    await updatePlant($selectedPlant.id, updateData);
     isEditing = false;
     await loadPlants();
     await loadPlantDetails($selectedPlant.id);
@@ -89,7 +101,13 @@
   <div class="detail-container">
     <!-- Plant Header -->
     <div class="plant-header">
-      <div class="plant-icon">{$selectedPlant.emoji || plantType?.icon || '🌿'}</div>
+      <div class="plant-icon">
+        {#if isEditing && $selectedPlant?.type === 'fruit'}
+          {editEmoji}
+        {:else}
+          {$selectedPlant.emoji || plantType?.icon || '🌿'}
+        {/if}
+      </div>
       <div class="plant-info">
         {#if isEditing}
           <input 
@@ -149,6 +167,26 @@
           placeholder="Add notes about this plant..."
           rows="3"
         ></textarea>
+        
+        <!-- Emoji Picker for Fruit Trees -->
+        {#if $selectedPlant?.type === 'fruit'}
+          <div class="emoji-picker">
+            <div class="section-title">Tree Icon</div>
+            <div class="emoji-grid">
+              {#each fruitEmojis as emoji}
+                <button 
+                  type="button"
+                  class="emoji-btn {editEmoji === emoji ? 'selected' : ''}"
+                  on:click={() => editEmoji = emoji}
+                  title={emoji}
+                >
+                  {emoji}
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+        
         <div class="edit-actions">
           <button class="btn btn-secondary" on:click={cancelEdit}>Cancel</button>
           <button class="btn btn-primary" on:click={saveChanges}>Save</button>
@@ -190,7 +228,7 @@
               <div class="timeline-icon">{eventType.icon}</div>
               <div class="timeline-content">
                 <div class="timeline-header">
-                  <span class="timeline-type">{eventType.label}</span>
+                  <span class="timeline-type">{$t(eventType.label)}</span>
                   <span class="timeline-date">{formatDate(event.date)}</span>
                 </div>
                 {#if event.notes}
@@ -513,6 +551,53 @@
     justify-content: flex-end;
     gap: 0.5rem;
     margin-top: 0.75rem;
+  }
+
+  .emoji-picker {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+  }
+
+  .emoji-picker .section-title {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #333;
+  }
+
+  .emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.5rem;
+  }
+
+  .emoji-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 1;
+    font-size: 1.5rem;
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .emoji-btn:hover {
+    border-color: #2d5a27;
+    background: #f0faf0;
+    transform: scale(1.1);
+  }
+
+  .emoji-btn.selected {
+    border-color: #2d5a27;
+    background: #2d5a27;
+    box-shadow: inset 0 0 0 2px white;
   }
 
   .empty-state {

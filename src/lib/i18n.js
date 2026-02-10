@@ -63,12 +63,14 @@ const translations = {
     addPlantFailed: 'Failed to add plant',
     
     // Event types
-    spray: 'Spray',
+    spray: 'Sprayed',
     pruned: 'Pruned',
     planted: 'Planted',
-    fertilized: 'Fertilized',
+    flowering: 'Flowering',
+    sickness: 'Sickness/Pest',
     harvested: 'Harvested',
     watered: 'Watered',
+    crop: 'Crop Recorded',
     otherEvent: 'Other',
     
     // Event Form
@@ -197,9 +199,11 @@ const translations = {
     spray: 'Permetezés',
     pruned: 'Metszés',
     planted: 'Ültetés',
-    fertilized: 'Trágyázás',
+    flowering: 'Virágzás',
+    sickness: 'Betegség/Kártevő',
     harvested: 'Betakarítás',
     watered: 'Öntözés',
+    crop: 'Termés rögzítve',
     otherEvent: 'Egyéb',
     
     // Event Form

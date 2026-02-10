@@ -3,26 +3,17 @@
   import { selectedPlant, loadPlants, showToast, navigateToPlantDetail } from '../lib/stores.js';
   import { getPlantsInBed, addPlantToBed, deletePlant, updatePlant, getPlantCareStatus } from '../lib/db.js';
   import { t } from '../lib/i18n.js';
+  import AddPlantInline from './AddPlantInline.svelte';
 
   let bedPlants = [];
   let plantStatuses = {};
   let showAddPlant = false;
-  let newPlantName = '';
-  let newPlantEmoji = '🌱';
-  let newPlantAmount = 1;
   let isEditing = false;
   let editName = '';
   let editNotes = '';
   let lastPlantId = null;
 
   const MAX_BED_PLANTS = 5;
-
-  // Plant emojis for bed plants
-  const bedPlantEmojis = [
-    '🍅', '🥕', '🥔', '🌶️', '🫑', '🧄', '🧅', '🥒', '🫛', '🌽',
-    '🥦', '🥬', '🥗', '🌿', '🌱', '🌾', '☘️', '🍀', '🌻', '🌸',
-    '🌺', '🌼', '🌷', '🪴', '🍃', '🫘', '🍆', '🍓', '🫐', '🍈'
-  ];
 
   $: if ($selectedPlant?.id) {
     loadBedPlants();
@@ -50,35 +41,9 @@
     plantStatuses = { ...plantStatuses }; // Trigger reactivity
   }
 
-  async function handleAddPlant() {
-    if (!newPlantName.trim()) {
-      showToast($t('plantNameRequired'), 'error');
-      return;
-    }
-
-    if (!canAddMorePlants) {
-      showToast(`Maximum ${MAX_BED_PLANTS} plants per bed`, 'error');
-      return;
-    }
-
-    try {
-      await addPlantToBed($selectedPlant.id, {
-        name: newPlantName.trim(),
-        emoji: newPlantEmoji,
-        amount: newPlantAmount,
-        notes: null
-      });
-      await loadBedPlants();
-      await loadPlants();
-      showToast($t('plantAdded'), 'success');
-      newPlantName = '';
-      newPlantEmoji = '🌱';
-      newPlantAmount = 1;
-      showAddPlant = false;
-    } catch (err) {
-      console.error('Failed to add plant:', err);
-      showToast($t('addPlantFailed'), 'error');
-    }
+  async function handleAddPlantSuccess() {
+    await loadBedPlants();
+    showAddPlant = false;
   }
 
   async function saveBedChanges() {
@@ -221,56 +186,10 @@
           <span>{canAddMorePlants ? 'Add Plant to Bed' : `Bed Full (${MAX_BED_PLANTS}/${MAX_BED_PLANTS})`}</span>
         </button>
       {:else}
-        <div class="add-plant-form">
-          <h3 class="form-title">Add Plant to Bed</h3>
-          
-          <div class="form-group">
-            <label for="new-plant-name">{$t('plantName')}</label>
-            <input
-              type="text"
-              id="new-plant-name"
-              bind:value={newPlantName}
-              placeholder="e.g., Tomato, Basil, Pepper..."
-              class="text-input"
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="new-plant-amount">Amount</label>
-            <input
-              type="number"
-              id="new-plant-amount"
-              bind:value={newPlantAmount}
-              min="1"
-              max="99"
-              class="text-input"
-            />
-          </div>
-
-          <div class="form-group">
-            <div class="form-label">{$t('chooseEmoji')}</div>
-            <div class="emoji-grid">
-              {#each bedPlantEmojis as emoji}
-                <button
-                  type="button"
-                  class="emoji-button {newPlantEmoji === emoji ? 'selected' : ''}"
-                  on:click={() => newPlantEmoji = emoji}
-                >
-                  {emoji}
-                </button>
-              {/each}
-            </div>
-          </div>
-
-          <div class="form-actions">
-            <button class="btn btn-secondary" on:click={() => { showAddPlant = false; newPlantName = ''; newPlantAmount = 1; }}>
-              {$t('cancel')}
-            </button>
-            <button class="btn btn-primary" on:click={handleAddPlant}>
-              {$t('addPlant')}
-            </button>
-          </div>
-        </div>
+        <AddPlantInline 
+          bedId={$selectedPlant.id}
+          onSuccess={handleAddPlantSuccess}
+        />
       {/if}
     </div>
   </div>
@@ -519,86 +438,6 @@
   .add-icon {
     font-size: 1.5rem;
     font-weight: 300;
-  }
-
-  .add-plant-form {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  }
-
-  .form-title {
-    font-size: 1.125rem;
-    color: #2d5a27;
-    margin: 0 0 1rem;
-  }
-
-  .form-group {
-    margin-bottom: 1rem;
-  }
-
-  .form-group label {
-    display: block;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #333;
-    margin-bottom: 0.5rem;
-  }
-
-  .form-label {
-    display: block;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #333;
-    margin-bottom: 0.5rem;
-  }
-
-  .text-input {
-    width: 100%;
-    padding: 0.75rem;
-    border: 2px solid #e9ecef;
-    border-radius: 8px;
-    font-size: 1rem;
-  }
-
-  .text-input:focus {
-    border-color: #2d5a27;
-    outline: none;
-  }
-
-  .emoji-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(45px, 1fr));
-    gap: 0.5rem;
-  }
-
-  .emoji-button {
-    aspect-ratio: 1;
-    border: 2px solid #e9ecef;
-    border-radius: 8px;
-    background: #f8f9fa;
-    font-size: 1.25rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .emoji-button:hover {
-    background: #e9ecef;
-    border-color: #2d5a27;
-  }
-
-  .emoji-button.selected {
-    background: #e8f5e9;
-    border-color: #2d5a27;
-    border-width: 3px;
-  }
-
-  .form-actions {
-    display: flex;
-    gap: 0.75rem;
-    justify-content: flex-end;
-    margin-top: 1rem;
   }
 
   .btn {

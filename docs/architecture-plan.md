@@ -15,10 +15,10 @@ A fully offline Progressive Web App (PWA) that runs in an Android browser (Chrom
 
 * Visualize the garden from a top-down view
 * Represent physical layout:
-
+  * very bottom: mixed plants
   * Bottom: 4 grape rows (~5 grapevines per row)
   * Middle: 3 raised beds with mixed plants
-  * Top: 11 fruit trees
+  * Top: 3 rows of fruit trees, and 5 trees in a row
 * Each plant has a visible label (name + ID)
 * Click/tap a plant to view and edit details
 * Search plants directly by ID
@@ -33,6 +33,8 @@ A fully offline Progressive Web App (PWA) that runs in an Android browser (Chrom
 * SVG or Canvas-based top-down garden layout
 * Clickable plant markers
 * Optional color indicators (e.g. needs spray soon)
+* Inline add plant form (no page navigation)
+* Button to open multi-plant event adder (📋 icon)
 
 ### 3.2 Plant Detail View
 
@@ -43,14 +45,25 @@ A fully offline Progressive Web App (PWA) that runs in an Android browser (Chrom
   * sprayed
   * crop
   * planted
-* Add new event with date picker
+  * pruned
+  * harvested
+* Add new event to single plant with date picker
 * Forecast information (next spray, expected crop)
 
-### 3.3 ID Search
+### 3.3 Multi-Plant Event Adder
+
+* Select event type (spray, prune, plant, flower, harvest, crop)
+* Choose date and optional notes
+* Search and select multiple plants at once
+* Quick actions: "Select All" / "Clear Selection"
+* Bulk add event to all selected plants
+* Perfect for garden-wide operations (e.g., spray all plants)
+
+### 3.4 ID Search
 
 * Input field to jump directly to a plant by ID
 
-### 3.4 Settings / Data Management
+### 3.5 Settings / Data Management
 
 * Export data (JSON or SQLite)
 * Import data (restore backup)
@@ -110,15 +123,6 @@ A fully offline Progressive Web App (PWA) that runs in an Android browser (Chrom
 
 ## 7. Sync Strategy (Optional)
 
-### 7.1 Automatic Sync (when PC reachable)
-
-* Phone detects local server availability
-* Upload local changes (timestamp-based)
-* Download newer server changes
-* Merge by modified_at
-
-### 7.2 Manual Sync
-
 * Export data file on phone
 * Import file on PC
 
@@ -144,9 +148,13 @@ A fully offline Progressive Web App (PWA) that runs in an Android browser (Chrom
 
 ## 9. Future Enhancements
 
-* Multi-device sync
 * Seasonal analytics
 
 ## 10. Implemented Enhancements
 
 * ✅ Photo attachments per plant (up to 3 photos, auto-compressed, stored in IndexedDB)
+* ✅ Inline plant adding (unified approach for bed plants and custom plants - no page navigation)
+* ✅ Multi-plant event adder (add events to multiple plants at once)
+* ✅ Global event management (spray all plants on a single date)
+* ✅ Plant search and filtering in multi-event form
+* ✅ Quick select/deselect actions for bulk operations
