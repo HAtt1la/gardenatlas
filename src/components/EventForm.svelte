@@ -1,6 +1,7 @@
 <script>
   import { createEventDispatcher } from 'svelte';
   import { addEvent, EVENT_TYPES } from '../lib/db.js';
+  import { t } from '../lib/i18n.js';
 
   export let plantId;
 
@@ -40,7 +41,7 @@
     <label for="eventType">Event Type</label>
     <select id="eventType" bind:value={eventType}>
       {#each EVENT_TYPES as type}
-        <option value={type.id}>{type.icon} {type.label}</option>
+        <option value={type.id}>{type.icon} {$t(type.label)}</option>
       {/each}
     </select>
   </div>
