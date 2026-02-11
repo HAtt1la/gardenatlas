@@ -109,7 +109,7 @@
 
     <!-- Bed Visualization (Top View) -->
     <div class="bed-view-section">
-      <h3 class="section-title">Bed Layout (Top View)</h3>
+      <h3 class="section-title">{$t('bedLayout')}</h3>
       
       <div class="bed-container">
         <!-- Brown border frame -->
@@ -155,7 +155,7 @@
     <!-- Bed Notes -->
     {#if isEditing}
       <div class="section">
-        <h3 class="section-title">Bed Notes</h3>
+        <h3 class="section-title">{$t('bedNotes')}</h3>
         <textarea 
           bind:value={editNotes} 
           class="edit-textarea"
@@ -169,7 +169,7 @@
       </div>
     {:else if $selectedPlant.notes}
       <div class="section">
-        <h3 class="section-title">Bed Notes</h3>
+        <h3 class="section-title">{$t('bedNotes')}</h3>
         <p class="notes-text">{$selectedPlant.notes}</p>
       </div>
     {/if}
@@ -183,7 +183,7 @@
           disabled={!canAddMorePlants}
         >
           <span class="add-icon">+</span>
-          <span>{canAddMorePlants ? 'Add Plant to Bed' : `Bed Full (${MAX_BED_PLANTS}/${MAX_BED_PLANTS})`}</span>
+          <span>{canAddMorePlants ? $t('addPlantToBed') : `${$t('bedFull')} (${MAX_BED_PLANTS}/${MAX_BED_PLANTS})`}</span>
         </button>
       {:else}
         <AddPlantInline 

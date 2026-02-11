@@ -13,7 +13,10 @@
   let lastPlantId = null;
 
   // Fruit emojis for tree customization
-  const fruitEmojis = ['🍎', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍒', '🍑', '🥝', '🍐', '🥭', '🍍', '🥜', '🌰', '🍂', '🌳', '🌲', '🌴', '🌵'];
+  const fruitEmojis = ['🍎', '🍐', '🥭', '🥜', '🌰', '🌳', '🌲','🍒', '🟣', '🍑', '🍊'];
+
+  // Vine emojis for grapevine customization (purple, white, red)
+  const vineEmojis = ['🍇', '🍈', '🥭'];
 
 
   // Update edit fields when plant changes (but not while actively editing)
@@ -37,8 +40,8 @@
       name: editName,
       notes: editNotes
     };
-    // Only save emoji for fruit trees
-    if ($selectedPlant?.type === 'fruit' && editEmoji) {
+    // Save emoji for fruit trees and grapevines
+    if (($selectedPlant?.type === 'fruit' || $selectedPlant?.type === 'grape') && editEmoji) {
       updateData.emoji = editEmoji;
     }
     await updatePlant($selectedPlant.id, updateData);
@@ -102,7 +105,7 @@
     <!-- Plant Header -->
     <div class="plant-header">
       <div class="plant-icon">
-        {#if isEditing && $selectedPlant?.type === 'fruit'}
+        {#if isEditing && ($selectedPlant?.type === 'fruit' || $selectedPlant?.type === 'grape')}
           {editEmoji}
         {:else}
           {$selectedPlant.emoji || plantType?.icon || '🌿'}
@@ -121,7 +124,7 @@
         {/if}
         <div class="plant-meta">
           <span class="plant-id">ID: #{$selectedPlant.id}</span>
-          <span class="plant-type">{plantType?.label || $selectedPlant.type}</span>
+          <span class="plant-type">{$t(plantType?.label || $selectedPlant.type)}</span>
         </div>
       </div>
       
@@ -138,18 +141,18 @@
       <div class="forecast-card status-{$plantForecast.status}">
         <div class="forecast-icon">💨</div>
         <div class="forecast-info">
-          <div class="forecast-label">Next Spray</div>
+          <div class="forecast-label">{$t('nextSpray')}</div>
           {#if $plantForecast.status === 'never'}
-            <div class="forecast-value">Never sprayed</div>
+            <div class="forecast-value">{$t('neverSprayed')}</div>
           {:else}
             <div class="forecast-value">{formatDate($plantForecast.date)}</div>
             <div class="forecast-days">
               {#if $plantForecast.daysUntil < 0}
-                {Math.abs($plantForecast.daysUntil)} days overdue
+                {Math.abs($plantForecast.daysUntil)} {$t('daysOverdue')}
               {:else if $plantForecast.daysUntil === 0}
-                Today
+                {$t('today')}
               {:else}
-                In {$plantForecast.daysUntil} days
+                {$t('inDays', { days: $plantForecast.daysUntil })}
               {/if}
             </div>
           {/if}
@@ -160,7 +163,7 @@
     <!-- Notes Section -->
     {#if isEditing}
       <div class="section">
-        <h3 class="section-title">Notes</h3>
+        <h3 class="section-title">{$t('notes')}</h3>
         <textarea 
           bind:value={editNotes} 
           class="edit-textarea"
@@ -171,9 +174,28 @@
         <!-- Emoji Picker for Fruit Trees -->
         {#if $selectedPlant?.type === 'fruit'}
           <div class="emoji-picker">
-            <div class="section-title">Tree Icon</div>
+            <div class="section-title">{$t('treeIcon')}</div>
             <div class="emoji-grid">
               {#each fruitEmojis as emoji}
+                <button 
+                  type="button"
+                  class="emoji-btn {editEmoji === emoji ? 'selected' : ''}"
+                  on:click={() => editEmoji = emoji}
+                  title={emoji}
+                >
+                  {emoji}
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+        
+        <!-- Emoji Picker for Grapevines -->
+        {#if $selectedPlant?.type === 'grape'}
+          <div class="emoji-picker">
+            <div class="section-title">{$t('vineColor')}</div>
+            <div class="emoji-grid vine-grid">
+              {#each vineEmojis as emoji}
                 <button 
                   type="button"
                   class="emoji-btn {editEmoji === emoji ? 'selected' : ''}"
@@ -194,11 +216,11 @@
       </div>
     {:else}
       <div class="section">
-        <h3 class="section-title">Notes</h3>
+        <h3 class="section-title">{$t('notes')}</h3>
         {#if $selectedPlant.notes}
           <p class="notes-text">{$selectedPlant.notes}</p>
         {:else}
-          <p class="notes-empty">No notes yet. Click the edit button above to add notes.</p>
+          <p class="notes-empty">{$t('noNotesYet')}</p>
         {/if}
       </div>
     {/if}
@@ -206,7 +228,7 @@
     <!-- Events Timeline -->
     <div class="section">
       <div class="section-header">
-        <h3 class="section-title">Event History</h3>
+        <h3 class="section-title">{$t('eventHistory')}</h3>
         <button class="btn btn-primary btn-sm" on:click={() => showEventForm = true}>
           + Add Event
         </button>
@@ -572,6 +594,10 @@
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 0.5rem;
+  }
+
+  .emoji-grid.vine-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .emoji-btn {

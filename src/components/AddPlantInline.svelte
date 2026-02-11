@@ -7,9 +7,9 @@
   export let onSuccess = null; // Optional callback after successful addition
   export let plantEmojis = [
     '🌿', '🌱', '🌾', '🌻', '🌺', '🌸', '🌼', '🌷', '🌹', '🏵️',
-    '🥀', '💐', '🎋', '🎍', '☘️', '🍀', '🪴', '🌲',
-    '🌳', '🍃', '🍂', '🍁', '🌰', '🥜', '🫘', '🌶️', '🫑', '🧄',
-    '🧅', '🥕', '🥔', '🥒', '🫛', '🌽', '🍄', '🥦', '🥬', '🥗'
+    '🥀', '💐', '🎍', '☘️','🌲',
+    '🌳', '🌶️', '🫑', '🧄',
+    '🧅', '🥕', '🥔', '🥒', '🌽', '🥦', '🥬'
   ];
 
   let newPlantName = '';
@@ -74,7 +74,7 @@
 </script>
 
 <div class="add-plant-form">
-  <h3 class="form-title">{bedId ? 'Add Plant to Bed' : $t('addNewPlant')}</h3>
+  <h3 class="form-title">{bedId ? $t('addPlantToBed') : $t('addNewPlant')}</h3>
   
   <div class="form-group">
     <label for="new-plant-name">{$t('plantName')}</label>
@@ -82,14 +82,14 @@
       type="text"
       id="new-plant-name"
       bind:value={newPlantName}
-      placeholder={bedId ? 'e.g., Tomato, Basil, Pepper...' : 'e.g., Rose, Lavender...'}
+      placeholder={bedId ? $t('exampleBedPlants') : $t('exampleOtherPlants')}
       class="text-input"
     />
   </div>
 
   {#if bedId}
     <div class="form-group">
-      <label for="new-plant-amount">Amount</label>
+      <label for="new-plant-amount">{$t('amount')}</label>
       <input
         type="number"
         id="new-plant-amount"

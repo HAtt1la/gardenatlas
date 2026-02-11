@@ -17,8 +17,8 @@
   // Layout sections
   const SECTIONS = {
     trees: { y: 30, labelKey: 'fruitTrees' },
-    beds: { y: 320, labelKey: 'raisedBeds' },
-    grapes: { y: 440, labelKey: 'grapevines' },
+    beds: { y: 355, labelKey: 'raisedBeds' },
+    grapes: { y: 460, labelKey: 'grapevines' },
     other: { y: 650, labelKey: 'herbsFlowers' }
   };
 
@@ -98,7 +98,7 @@
     <text x="10" y={SECTIONS.other.y - 10} class="section-label">🌿 {$t(SECTIONS.other.labelKey)}</text>
     
     <!-- Section dividers -->
-    <line x1="0" y1="310" x2={GARDEN_WIDTH} y2="310" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
+    <line x1="0" y1="330" x2={GARDEN_WIDTH} y2="330" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
     <line x1="0" y1="430" x2={GARDEN_WIDTH} y2="430" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
     <line x1="0" y1="640" x2={GARDEN_WIDTH} y2="640" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
     
@@ -162,7 +162,7 @@
         <g transform="translate({50 + col * 75}, {SECTIONS.grapes.y + 25 + row * 35})">
           <circle r="14" fill={getStatusColor(grape.id)} opacity="0.3" class="marker-glow" />
           <circle r="10" fill={getStatusColor(grape.id)} class="marker-circle" />
-          <text y="3" class="plant-icon-small">🍇</text>
+          <text y="3" class="plant-icon-small">{grape.emoji || '🍇'}</text>
           <text x="18" y="4" class="plant-label-small">{grape.name}</text>
         </g>
       </g>

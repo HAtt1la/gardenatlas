@@ -53,10 +53,10 @@ export const EVENT_TYPES = [
 
 // Plant types
 export const PLANT_TYPES = [
-  { id: 'grape', label: 'Grape', icon: '🍇' },
-  { id: 'fruit', label: 'Fruit Tree', icon: '🌳' },
-  { id: 'bed', label: 'Raised Bed', icon: '🥬' },
-  { id: 'other', label: 'Other', icon: '🌿' }
+  { id: 'grape', label: 'grape', icon: '🍇' },
+  { id: 'fruit', label: 'fruit', icon: '🌳' },
+  { id: 'bed', label: 'bed', icon: '🥬' },
+  { id: 'other', label: 'other', icon: '🌿' }
 ];
 
 // Default spray intervals (in days)

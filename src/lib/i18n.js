@@ -37,14 +37,31 @@ const translations = {
     type: 'Type',
     row: 'Row',
     notes: 'Notes',
+    eventHistory: 'Event History',
     nextSpray: 'Next Spray',
     lastSpray: 'Last Spray',
+    neverSprayed: 'Never sprayed',
+    daysOverdue: 'days overdue',
+    today: 'Today',
+    inDays: 'In {days} days',
+    noNotesYet: 'No notes yet. Click the edit button above to add notes.',
     daysSince: 'Days since last spray',
     daysUntil: 'Days until next spray',
     events: 'Events',
     addEvent: 'Add Event',
     noEvents: 'No events recorded yet',
     noNotesRecorded: 'No notes recorded',
+    
+    // Bed Detail
+    bedLayout: 'Bed Layout (Top View)',
+    bedNotes: 'Bed Notes',
+    addPlantToBed: 'Add Plant to Bed',
+    bedFull: 'Bed Full',
+    treeIcon: 'Tree Icon',
+    vineColor: 'Vine Color',
+    amount: 'Amount',
+    exampleBedPlants: 'e.g., Tomato, Basil, Pepper...',
+    exampleOtherPlants: 'e.g., Rose, Lavender...',
     
     // Plant types
     fruit: 'Fruit Tree',
@@ -170,14 +187,31 @@ const translations = {
     type: 'Típus',
     row: 'Sor',
     notes: 'Jegyzetek',
+    eventHistory: 'Eseménytörténet',
     nextSpray: 'Következő permetezés',
     lastSpray: 'Utolsó permetezés',
+    neverSprayed: 'Soha nem permetezve',
+    daysOverdue: 'nap késett',
+    today: 'Ma',
+    inDays: '{days} nap múlva',
+    noNotesYet: 'Még nincsenek jegyzetek. Kattints a fenti szerkesztés gombra a jegyzetekhez.',
     daysSince: 'Napok az utolsó permetezés óta',
     daysUntil: 'Napok a következő permetezésig',
     events: 'Események',
     addEvent: 'Esemény hozzáadása',
     noEvents: 'Még nincsenek rögzített események',
-    noNotesRecorded: 'Nincsenek jegyzetek',
+    noNotesRecorded: 'Nincsenek jegyzet',
+    
+    // Bed Detail
+    bedLayout: 'Ágy elrendezése (felülnézet)',
+    bedNotes: 'Ágy jegyzetei',
+    addPlantToBed: 'Növény hozzáadása az ágyhoz',
+    bedFull: 'Ágy megtelt',
+    treeIcon: 'Fa ikon',
+    vineColor: 'Szőlő szín',
+    amount: 'Mennyiség',
+    exampleBedPlants: 'pl. Paradicsom, Bazsalikom, Paprika...',
+    exampleOtherPlants: 'pl. Rózsa, Levanda...',
     
     // Plant types
     fruit: 'Gyümölcsfa',
@@ -280,8 +314,17 @@ const translations = {
 
 // Derived store that returns the current translation function
 export const t = derived(currentLanguage, ($currentLanguage) => {
-  return (key) => {
-    return translations[$currentLanguage]?.[key] || translations['en'][key] || key;
+  return (key, params = {}) => {
+    let translation = translations[$currentLanguage]?.[key] || translations['en'][key] || key;
+    
+    // Replace parameters in the translation string
+    if (params && typeof translation === 'string') {
+      Object.entries(params).forEach(([paramKey, paramValue]) => {
+        translation = translation.replace(`{${paramKey}}`, paramValue);
+      });
+    }
+    
+    return translation;
   };
 });
 

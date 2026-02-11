@@ -43,30 +43,30 @@ const SAMPLE_PLANTS = [
   { id: 27, name: 'Bed B', type: 'bed', row: null, x: 280, notes: 'Cucumbers, zucchini, herbs' },
 
   // Grapevines (4 rows × 5 = 20 vines)
-  // Row 1
-  { id: 28, name: 'Vine 1-1', type: 'grape', row: 1, x: 50, notes: null },
-  { id: 29, name: 'Vine 1-2', type: 'grape', row: 1, x: 125, notes: null },
-  { id: 30, name: 'Vine 1-3', type: 'grape', row: 1, x: 200, notes: null },
-  { id: 31, name: 'Vine 1-4', type: 'grape', row: 1, x: 275, notes: null },
-  { id: 32, name: 'Vine 1-5', type: 'grape', row: 1, x: 350, notes: null },
-  // Row 2
-  { id: 33, name: 'Vine 2-1', type: 'grape', row: 2, x: 50, notes: null },
-  { id: 34, name: 'Vine 2-2', type: 'grape', row: 2, x: 125, notes: null },
-  { id: 35, name: 'Vine 2-3', type: 'grape', row: 2, x: 200, notes: null },
-  { id: 36, name: 'Vine 2-4', type: 'grape', row: 2, x: 275, notes: null },
-  { id: 37, name: 'Vine 2-5', type: 'grape', row: 2, x: 350, notes: null },
-  // Row 3
-  { id: 38, name: 'Vine 3-1', type: 'grape', row: 3, x: 50, notes: null },
-  { id: 39, name: 'Vine 3-2', type: 'grape', row: 3, x: 125, notes: null },
-  { id: 40, name: 'Vine 3-3', type: 'grape', row: 3, x: 200, notes: null },
-  { id: 41, name: 'Vine 3-4', type: 'grape', row: 3, x: 275, notes: null },
-  { id: 42, name: 'Vine 3-5', type: 'grape', row: 3, x: 350, notes: null },
-  // Row 4
-  { id: 43, name: 'Vine 4-1', type: 'grape', row: 4, x: 50, notes: null },
-  { id: 44, name: 'Vine 4-2', type: 'grape', row: 4, x: 125, notes: null },
-  { id: 45, name: 'Vine 4-3', type: 'grape', row: 4, x: 200, notes: null },
-  { id: 46, name: 'Vine 4-4', type: 'grape', row: 4, x: 275, notes: null },
-  { id: 47, name: 'Vine 4-5', type: 'grape', row: 4, x: 350, notes: null },
+  // Row 1 - Purple grapes
+  { id: 28, name: 'Vine 1-1', type: 'grape', row: 1, x: 50, emoji: '🍇', notes: null },
+  { id: 29, name: 'Vine 1-2', type: 'grape', row: 1, x: 125, emoji: '🍇', notes: null },
+  { id: 30, name: 'Vine 1-3', type: 'grape', row: 1, x: 200, emoji: '🍇', notes: null },
+  { id: 31, name: 'Vine 1-4', type: 'grape', row: 1, x: 275, emoji: '🍇', notes: null },
+  { id: 32, name: 'Vine 1-5', type: 'grape', row: 1, x: 350, emoji: '🍇', notes: null },
+  // Row 2 - White grapes
+  { id: 33, name: 'Vine 2-1', type: 'grape', row: 2, x: 50, emoji: '🤍', notes: null },
+  { id: 34, name: 'Vine 2-2', type: 'grape', row: 2, x: 125, emoji: '🤍', notes: null },
+  { id: 35, name: 'Vine 2-3', type: 'grape', row: 2, x: 200, emoji: '🤍', notes: null },
+  { id: 36, name: 'Vine 2-4', type: 'grape', row: 2, x: 275, emoji: '🤍', notes: null },
+  { id: 37, name: 'Vine 2-5', type: 'grape', row: 2, x: 350, emoji: '🤍', notes: null },
+  // Row 3 - Red grapes
+  { id: 38, name: 'Vine 3-1', type: 'grape', row: 3, x: 50, emoji: '🍷', notes: null },
+  { id: 39, name: 'Vine 3-2', type: 'grape', row: 3, x: 125, emoji: '🍷', notes: null },
+  { id: 40, name: 'Vine 3-3', type: 'grape', row: 3, x: 200, emoji: '🍷', notes: null },
+  { id: 41, name: 'Vine 3-4', type: 'grape', row: 3, x: 275, emoji: '🍷', notes: null },
+  { id: 42, name: 'Vine 3-5', type: 'grape', row: 3, x: 350, emoji: '🍷', notes: null },
+  // Row 4 - Mixed colors
+  { id: 43, name: 'Vine 4-1', type: 'grape', row: 4, x: 50, emoji: '🍇', notes: null },
+  { id: 44, name: 'Vine 4-2', type: 'grape', row: 4, x: 125, emoji: '🤍', notes: null },
+  { id: 45, name: 'Vine 4-3', type: 'grape', row: 4, x: 200, emoji: '🍷', notes: null },
+  { id: 46, name: 'Vine 4-4', type: 'grape', row: 4, x: 275, emoji: '🍇', notes: null },
+  { id: 47, name: 'Vine 4-5', type: 'grape', row: 4, x: 350, emoji: '🤍', notes: null },
 ];
 
 // Sample events for demonstration
