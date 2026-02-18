@@ -10,7 +10,6 @@
   ],
   "timezone": "UTC",
   "commitMessagePrefix": "chore(deps):",
-  "prTitleTemplate": "chore(deps): update {{{depName}}} to {{{newVersion}}}",
   "packageRules": [
     {
       "matchDatasources": ["npm"],
