@@ -3,33 +3,26 @@
   "extends": [
     "config:recommended",
     ":dependencyDashboard",
-    ":semanticCommits",
-    "group:allNonMajor"
+    ":semanticCommits"
   ],
   "schedule": [
     "before 3am on Monday"
   ],
   "timezone": "UTC",
-  "semanticCommits": "enabled",
   "commitMessagePrefix": "chore(deps):",
   "prTitleTemplate": "chore(deps): update {{{depName}}} to {{{newVersion}}}",
-  "automerge": false,
-  "major": {
-    "enabled": true
-  },
   "packageRules": [
     {
       "matchDatasources": ["npm"],
       "matchUpdateTypes": ["patch"],
       "automerge": true,
-      "automergeType": "pr",
       "minimumReleaseAge": "3 days"
     },
     {
       "matchPackagePatterns": ["^svelte$", "^@sveltejs/"],
       "groupName": "svelte monorepo",
       "automerge": false,
-      "labels": ["svelte", "breaking-change-risk"]
+      "labels": ["svelte"]
     },
     {
       "matchPackagePatterns": ["^vite$", "^@vitejs/"],
@@ -51,13 +44,12 @@
     {
       "matchDepTypes": ["devDependencies"],
       "matchUpdateTypes": ["minor", "patch"],
-      "automerge": true,
-      "automergeType": "pr"
+      "automerge": true
     }
   ],
   "vulnerabilityAlerts": {
     "enabled": true,
-    "labels": ["security", "vulnerability"]
+    "labels": ["security"]
   },
   "postUpdateOptions": [
     "npmDedupe"
@@ -65,6 +57,5 @@
   "prConcurrentLimit": 3,
   "prCreation": "not-pending",
   "separateMajorMinor": true,
-  "separateMinorPatch": false,
-  "rangeStrategy": "auto"
+  "separateMinorPatch": false
 }
