@@ -2,7 +2,7 @@ import { writable, derived } from 'svelte/store';
 import { getAllPlants, getEventsForPlant, calculateNextSpray } from './db.js';
 
 // Current view state
-export const currentView = writable('map'); // 'map', 'detail', 'settings', 'addPlant'
+export const currentView = writable('map'); // 'map', 'detail', 'settings', 'multiEvent'
 export const selectedPlantId = writable(null);
 export const searchQuery = writable('');
 
@@ -76,8 +76,8 @@ export function navigateToSettings() {
   currentView.set('settings');
 }
 
-export function navigateToAddPlant() {
-  currentView.set('addPlant');
+export function navigateToMultiEvent() {
+  currentView.set('multiEvent');
 }
 
 // Toast notifications

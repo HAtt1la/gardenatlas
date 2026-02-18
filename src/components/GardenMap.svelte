@@ -1,23 +1,25 @@
 <script>
   import { onMount } from 'svelte';
-  import { plants, navigateToPlant, navigateToAddPlant, loadPlants } from '../lib/stores.js';
+  import { plants, navigateToPlant, loadPlants } from '../lib/stores.js';
   import { calculateNextSpray, getPlantsInBed } from '../lib/db.js';
   import { t } from '../lib/i18n.js';
+  import AddPlantInline from './AddPlantInline.svelte';
 
   let plantStatuses = {};
   let bedPlants = {}; // Store plants for each bed
   let isLoadingBedPlants = false;
+  let showAddPlant = false;
 
   // Garden dimensions (visual units)
   const GARDEN_WIDTH = 400;
-  const GARDEN_HEIGHT = 600;
+  const GARDEN_HEIGHT = 950;
   
   // Layout sections
   const SECTIONS = {
     trees: { y: 30, labelKey: 'fruitTrees' },
-    beds: { y: 180, labelKey: 'raisedBeds' },
-    grapes: { y: 320, labelKey: 'grapevines' },
-    other: { y: 480, labelKey: 'herbsFlowers' }
+    beds: { y: 355, labelKey: 'raisedBeds' },
+    grapes: { y: 460, labelKey: 'grapevines' },
+    other: { y: 650, labelKey: 'herbsFlowers' }
   };
 
   $: grapes = $plants.filter(p => p.type === 'grape').slice(0, 20); // Only show first 20 vines (4 rows)
@@ -96,9 +98,9 @@
     <text x="10" y={SECTIONS.other.y - 10} class="section-label">🌿 {$t(SECTIONS.other.labelKey)}</text>
     
     <!-- Section dividers -->
-    <line x1="0" y1="140" x2={GARDEN_WIDTH} y2="140" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
-    <line x1="0" y1="280" x2={GARDEN_WIDTH} y2="280" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
-    <line x1="0" y1="460" x2={GARDEN_WIDTH} y2="460" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
+    <line x1="0" y1="330" x2={GARDEN_WIDTH} y2="330" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
+    <line x1="0" y1="430" x2={GARDEN_WIDTH} y2="430" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
+    <line x1="0" y1="640" x2={GARDEN_WIDTH} y2="640" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
     
     <!-- Fruit Trees (top section) -->
     {#each trees as tree, i}
@@ -112,7 +114,7 @@
         <g transform="translate({tree.x || (30 + i * 35)}, {tree.y || SECTIONS.trees.y + 40})">
           <circle r="18" fill={getStatusColor(tree.id)} opacity="0.3" class="marker-glow" />
           <circle r="12" fill={getStatusColor(tree.id)} class="marker-circle" />
-          <text y="4" class="plant-icon">🌳</text>
+          <text y="4" class="plant-icon">{tree.emoji || '🌳'}</text>
           <text y="28" class="plant-label">{tree.name}</text>
           <text y="40" class="plant-id">#{tree.id}</text>
         </g>
@@ -129,19 +131,19 @@
         role="button"
         tabindex="0"
       >
-        <g transform="translate({bed.x || (80 + i * 120)}, {bed.y || SECTIONS.beds.y + 40})">
-          <rect x="-40" y="-25" width="80" height="50" rx="5" fill={getStatusColor(bed.id)} opacity="0.3" class="marker-glow" />
-          <rect x="-35" y="-20" width="70" height="40" rx="3" fill={getStatusColor(bed.id)} class="marker-rect" />
+        <g transform="translate({bed.x || (100 + i * 200)}, {bed.y || SECTIONS.beds.y + 35})">
+          <rect x="-65" y="-30" width="130" height="60" rx="5" fill={getStatusColor(bed.id)} opacity="0.3" class="marker-glow" />
+          <rect x="-60" y="-25" width="120" height="50" rx="3" fill={getStatusColor(bed.id)} class="marker-rect" />
           
           <!-- Show plant emojis in bed -->
           {#if plantsInBed.length > 0}
             {#each plantsInBed as plant, idx}
-              <text x={-25 + idx * 13} y="4" class="bed-plant-icon">{plant.emoji || '🌱'}</text>
+              <text x={-40 + idx * 24} y="5" class="bed-plant-icon">{plant.emoji || '🌱'}</text>
             {/each}
           {/if}
           
-          <text y="45" class="plant-label">{bed.name}</text>
-          <text y="57" class="plant-id">#{bed.id}</text>
+          <text y="48" class="plant-label">{bed.name}</text>
+          <text y="62" class="plant-id">#{bed.id}</text>
         </g>
       </g>
     {/each}
@@ -160,7 +162,7 @@
         <g transform="translate({50 + col * 75}, {SECTIONS.grapes.y + 25 + row * 35})">
           <circle r="14" fill={getStatusColor(grape.id)} opacity="0.3" class="marker-glow" />
           <circle r="10" fill={getStatusColor(grape.id)} class="marker-circle" />
-          <text y="3" class="plant-icon-small">🍇</text>
+          <text y="3" class="plant-icon-small">{grape.emoji || '🍇'}</text>
           <text x="18" y="4" class="plant-label-small">{grape.name}</text>
         </g>
       </g>
@@ -200,13 +202,22 @@
     {/each}
   </svg>
   
-  <!-- Add Plant Button (for Other section) -->
-  <div class="add-plant-section">
-    <button class="btn-add-plant" on:click={navigateToAddPlant}>
-      <span class="add-icon">+</span>
-      <span>{$t('addNewPlant')}</span>
-    </button>
-  </div>
+  <!-- Add Plant Section -->
+  {#if !showAddPlant}
+    <div class="add-plant-section">
+      <button class="btn-add-plant" on:click={() => showAddPlant = true}>
+        <span class="add-icon">+</span>
+        <span>{$t('addNewPlant')}</span>
+      </button>
+    </div>
+  {:else}
+    <div class="add-plant-section form-wrapper">
+      <AddPlantInline 
+        bedId={null}
+        onSuccess={() => { showAddPlant = false; }}
+      />
+    </div>
+  {/if}
   
   <!-- Legend -->
   <div class="legend">
@@ -354,6 +365,13 @@
     margin-top: 1rem;
     width: 100%;
     max-width: 500px;
+  }
+
+  .add-plant-section.form-wrapper {
+    margin-top: 1rem;
+    width: 100%;
+    max-width: 500px;
+    padding: 0 1rem;
   }
 
   .btn-add-plant {

@@ -18,8 +18,10 @@ gardenatlas/
 │       ├── GardenMap.svelte    # SVG-based garden visualization
 │       ├── PlantDetail.svelte  # Plant details view with event timeline
 │       ├── BedDetail.svelte    # Bed details view with plant management
-│       ├── EventForm.svelte    # Form for adding new events
-│       ├── AddPlantForm.svelte # Form for adding custom plants
+│       ├── EventForm.svelte    # Form for adding events to a single plant
+│       ├── MultiEventForm.svelte # Form for adding events to multiple plants
+│       ├── AddPlantInline.svelte # Reusable inline form for adding plants
+│       ├── AddPlantForm.svelte # (Deprecated) Form for adding custom plants
 │       ├── SearchBar.svelte    # Search plants by ID or name
 │       ├── Settings.svelte     # Settings, export/import, interval config
 │       └── Toast.svelte        # Toast notification component
@@ -51,7 +53,8 @@ gardenatlas/
 | **Edit Plants** | Inline editing of plant name and notes (all plant types) | ✅ |
 | **Delete Plants** | Remove bed plants and herbs/flowers (trees/vines are permanent) | ✅ |
 | **Event Timeline** | Track flowering, spraying, pruning, fertilizing, harvesting, planting, crops | ✅ |
-| **Add Events** | Date picker and notes for each event | ✅ |
+| **Add Events** | Date picker and notes for each event (single plant) | ✅ |
+| **Bulk Events** | Add events to multiple plants at once (e.g., spraying all plants) | ✅ |
 | **Search** | Quick search by plant ID or name | ✅ |
 | **Spray Forecasts** | Automatic calculation of next spray date based on intervals | ✅ |
 | **Configurable Intervals** | Set spray intervals per plant type (grapes, fruit trees) | ✅ |
@@ -68,7 +71,6 @@ gardenatlas/
 - 🌸 **Flowering** - Flower bloom tracking
 - 💨 **Sprayed** - Pesticide/fungicide applications
 - ✂️ **Pruned** - Pruning events
-- 🧪 **Fertilized** - Fertilizer applications
 - 🧺 **Harvested** - Harvest dates
 - 📊 **Crop Recorded** - Crop yield tracking
 
@@ -174,12 +176,29 @@ These can be customized in Settings.
 
 1. Scroll to the "Herbs & Flowers" section on the map
 2. Click the "+ Add New Plant" button
-3. Enter the plant name
-4. Select an emoji icon (40+ plant-related emojis available)
-5. Preview your plant
-6. Click "Add Plant"
+3. An inline form appears (no page navigation)
+4. Enter the plant name
+5. Select an emoji icon (40+ plant-related emojis available)
+6. Preview your plant
+7. Click "Add Plant"
 
 Custom plants support all features: notes, events, spray tracking, and more.
+
+### Adding Events to Multiple Plants
+
+1. On the garden map view, click the 📋 button in the header (next to search)
+2. Select the event type (Sprayed, Pruned, Planted, Flowering, Harvested, or Crop Recorded)
+3. Pick the date for the event
+4. Add optional notes
+5. Search for plants by name or ID (optional)
+6. Select plants:
+   - Click checkboxes to select individual plants
+   - Use "Select All" to select all plants at once
+   - Use "Clear Selection" to deselect all
+7. Click "Add Event to X Plants" to save
+8. The event is automatically added to all selected plants and appears in their detail view
+
+**Use Case**: Spray all plants in the garden on the same date - just select all and add the "Sprayed" event.
 
 ### Managing Bed Plants
 
@@ -260,7 +279,6 @@ After first load, the app works completely offline. Data sync is manual via expo
 ### Future Enhancements
 
 Potential features for future versions:
-- Automatic sync server (when PC available)
 - Multi-season analytics
 - Harvest yield tracking
 - Disease/pest logging

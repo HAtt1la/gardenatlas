@@ -32,23 +32,31 @@ db.version(4).stores({
   photos: '++id, plantId, isMain'
 });
 
-// Event types
+// Version 5: Add composite index for events
+db.version(5).stores({
+  plants: '++id, name, type, row, x, y, emoji, bedId',
+  events: '++id, [plantId+eventType], plantId, eventType, date, modifiedAt',
+  settings: 'key',
+  photos: '++id, plantId, isMain'
+});
+
+// Event types - labels are i18n keys, will be translated at runtime
 export const EVENT_TYPES = [
-  { id: 'planted', label: 'Planted', icon: '🌱' },
-  { id: 'flowering', label: 'Flowering', icon: '🌸' },
-  { id: 'spray', label: 'Sprayed', icon: '💨' },
-  { id: 'pruned', label: 'Pruned', icon: '✂️' },
-  { id: 'fertilized', label: 'Fertilized', icon: '🧪' },
-  { id: 'harvested', label: 'Harvested', icon: '🧺' },
-  { id: 'crop', label: 'Crop Recorded', icon: '📊' }
+  { id: 'planted', label: 'planted', icon: '🌱' },
+  { id: 'flowering', label: 'flowering', icon: '🌸' },
+  { id: 'spray', label: 'spray', icon: '💨' },
+  { id: 'pruned', label: 'pruned', icon: '✂️' },
+  { id: 'harvested', label: 'harvested', icon: '🧺' },
+  { id: 'sickness', label: 'sickness', icon: '🦠' },
+  { id: 'crop', label: 'crop', icon: '📊' }
 ];
 
 // Plant types
 export const PLANT_TYPES = [
-  { id: 'grape', label: 'Grape', icon: '🍇' },
-  { id: 'fruit', label: 'Fruit Tree', icon: '🌳' },
-  { id: 'bed', label: 'Raised Bed', icon: '🥬' },
-  { id: 'other', label: 'Other', icon: '🌿' }
+  { id: 'grape', label: 'grape', icon: '🍇' },
+  { id: 'fruit', label: 'fruit', icon: '🌳' },
+  { id: 'bed', label: 'bed', icon: '🥬' },
+  { id: 'other', label: 'other', icon: '🌿' }
 ];
 
 // Default spray intervals (in days)
