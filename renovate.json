@@ -12,49 +12,81 @@
   "commitMessagePrefix": "chore(deps):",
   "packageRules": [
     {
-      "matchDatasources": ["npm"],
-      "matchUpdateTypes": ["patch"],
+      "matchDatasources": [
+        "npm"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
       "automerge": true,
       "minimumReleaseAge": "3 days"
     },
     {
-      "matchPackagePatterns": ["^svelte$", "^@sveltejs/"],
       "groupName": "svelte monorepo",
       "automerge": false,
-      "labels": ["svelte"]
+      "labels": [
+        "svelte"
+      ],
+      "matchPackageNames": [
+        "/^svelte$/",
+        "/^@sveltejs//"
+      ]
     },
     {
-      "matchPackagePatterns": ["^vite$", "^@vitejs/"],
       "groupName": "vite",
       "automerge": false,
-      "labels": ["build-tools"]
+      "labels": [
+        "build-tools"
+      ],
+      "matchPackageNames": [
+        "/^vite$/",
+        "/^@vitejs//"
+      ]
     },
     {
-      "matchPackageNames": ["@sveltejs/vite-plugin-svelte"],
+      "matchPackageNames": [
+        "@sveltejs/vite-plugin-svelte"
+      ],
       "automerge": false,
       "allowedVersions": "<4"
     },
     {
-      "matchPackagePatterns": ["^eslint", "eslint-plugin"],
       "groupName": "eslint ecosystem",
       "automerge": false,
-      "labels": ["linting"],
+      "labels": [
+        "linting"
+      ],
+      "matchPackageNames": [
+        "/^eslint/",
+        "/eslint-plugin/"
+      ],
       "allowedVersions": "<10"
     },
     {
-      "matchPackagePatterns": ["dexie"],
       "automerge": false,
-      "labels": ["database"]
+      "labels": [
+        "database"
+      ],
+      "matchPackageNames": [
+        "/dexie/"
+      ]
     },
     {
-      "matchDepTypes": ["devDependencies"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchDepTypes": [
+        "devDependencies"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "automerge": true
     }
   ],
   "vulnerabilityAlerts": {
     "enabled": true,
-    "labels": ["security"]
+    "labels": [
+      "security"
+    ]
   },
   "postUpdateOptions": [
     "npmDedupe"
