@@ -12,7 +12,7 @@
     "@eslint/js": "^8.57.0",
     "@sveltejs/vite-plugin-svelte": "^3.1.0",
     "eslint": "^9.0.0",
-    "eslint-plugin-svelte": "^2.46.1",
+    "eslint-plugin-svelte": "^3.0.0",
     "globals": "^15.0.0",
     "svelte": "^4.2.12",
     "svelte-eslint-parser": "^1.4.1",
