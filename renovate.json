@@ -30,10 +30,16 @@
       "labels": ["build-tools"]
     },
     {
+      "matchPackageNames": ["@sveltejs/vite-plugin-svelte"],
+      "automerge": false,
+      "allowedVersions": "<4"
+    },
+    {
       "matchPackagePatterns": ["^eslint", "eslint-plugin"],
       "groupName": "eslint ecosystem",
       "automerge": false,
-      "labels": ["linting"]
+      "labels": ["linting"],
+      "allowedVersions": "<10"
     },
     {
       "matchPackagePatterns": ["dexie"],
