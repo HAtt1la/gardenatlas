@@ -1,13 +1,12 @@
 <script>
   import { onMount } from 'svelte';
-  import { plants, navigateToPlant, loadPlants } from '../lib/stores.js';
+  import { plants, navigateToPlant } from '../lib/stores.js';
   import { calculateNextSpray, getPlantsInBed } from '../lib/db.js';
   import { t } from '../lib/i18n.js';
   import AddPlantInline from './AddPlantInline.svelte';
 
   let plantStatuses = {};
   let bedPlants = {}; // Store plants for each bed
-  let isLoadingBedPlants = false;
   let showAddPlant = false;
 
   // Garden dimensions (visual units)
@@ -35,7 +34,8 @@
         plantStatuses[plant.id] = forecast.status;
       }
     }
-    plantStatuses = plantStatuses;
+    // trigger reactivity by cloning the object
+    plantStatuses = { ...plantStatuses };
     
     // Load plants for each bed
     await loadBedPlants();

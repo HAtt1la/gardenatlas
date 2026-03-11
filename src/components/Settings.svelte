@@ -98,7 +98,7 @@
       await importData({ plants: [], events: [], settings: [] });
       await loadPlants();
       showToast($t('allDataCleared'), 'success');
-    } catch (err) {
+    } catch {
       showToast($t('clearFailed'), 'error');
     }
   }

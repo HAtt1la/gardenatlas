@@ -1,6 +1,6 @@
 <script>
   import { selectedPlant, plantEvents, plantForecast, loadPlantDetails, loadPlants, showToast, navigateToMap } from '../lib/stores.js';
-  import { updatePlant, addEvent, deleteEvent, deletePlant, EVENT_TYPES, PLANT_TYPES } from '../lib/db.js';
+  import { updatePlant, deleteEvent, deletePlant, EVENT_TYPES, PLANT_TYPES } from '../lib/db.js';
   import { t } from '../lib/i18n.js';
   import EventForm from './EventForm.svelte';
   import PhotoGallery from './PhotoGallery.svelte';
@@ -10,7 +10,6 @@
   let editNotes = '';
   let editEmoji = '';
   let showEventForm = false;
-  let lastPlantId = null;
 
   // Fruit emojis for tree customization
   const fruitEmojis = ['🍎', '🍐', '🥭', '🥜', '🌰', '🌳', '🌲','🍒', '🟣', '🍑', '🍊'];
@@ -21,9 +20,6 @@
 
   // Update edit fields when plant changes (but not while actively editing)
   $: if ($selectedPlant && !isEditing) {
-    if ($selectedPlant.id !== lastPlantId) {
-      lastPlantId = $selectedPlant.id;
-    }
     editName = $selectedPlant.name;
     editNotes = $selectedPlant.notes || '';
     editEmoji = $selectedPlant.emoji || '';
