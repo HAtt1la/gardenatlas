@@ -61,7 +61,7 @@
       plantsInSection.forEach(p => selectedPlantIds.add(p.id));
     }
     
-    selectedPlantIds = selectedPlantIds; // Trigger reactivity
+    selectedPlantIds = new Set(selectedPlantIds); // Trigger reactivity by cloning
   }
 
   function togglePlant(plantId) {
@@ -70,13 +70,13 @@
     } else {
       selectedPlantIds.add(plantId);
     }
-    selectedPlantIds = selectedPlantIds; // Trigger reactivity
+    selectedPlantIds = new Set(selectedPlantIds); // Trigger reactivity by cloning
   }
 
   function toggleSectionExpanded(sectionId, event) {
     event.stopPropagation();
     expandedSections[sectionId] = !expandedSections[sectionId];
-    expandedSections = expandedSections; // Trigger reactivity
+    expandedSections = { ...expandedSections }; // Trigger reactivity
   }
 
   function selectAll() {

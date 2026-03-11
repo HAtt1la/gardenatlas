@@ -94,25 +94,22 @@
 
 <div class="photo-section">
   <!-- Main Photo Display -->
-  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
-  <div class="main-photo-container" on:click={openGallery} role="button" tabindex="0">
+  <button class="main-photo-container" on:click={openGallery} type="button">
     {#if mainPhoto}
       {@const photoUrl = getPhotoUrl(mainPhoto)}
       {#if photoUrl}
-        <!-- svelte-ignore a11y-img-redundant-alt -->
-        <img src={photoUrl} alt="Plant photo" class="main-photo" />
+        <img src={photoUrl} alt="" class="main-photo" />
         {#if photos.length > 1}
           <div class="photo-count">{photos.length} 📷</div>
         {/if}
       {/if}
     {:else}
-      <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
-      <div class="no-photo" on:click|stopPropagation={triggerFileInput} role="button" tabindex="0">
+      <button class="no-photo" on:click|stopPropagation={triggerFileInput} type="button">
         <span class="no-photo-icon">📷</span>
         <span class="no-photo-text">{$t('addPhoto')}</span>
-      </div>
+      </button>
     {/if}
-  </div>
+  </button>
 
   <!-- Hidden File Input -->
   <input 
@@ -133,8 +130,8 @@
 
 <!-- Gallery Modal -->
 {#if showGallery}
-  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
-  <div class="gallery-overlay" on:click={closeGallery} role="button" tabindex="0">
+
+  <button class="gallery-overlay" on:click={closeGallery} on:keydown={(e) => e.key === 'Enter' && closeGallery()} type="button">
     <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
     <div class="gallery-modal" on:click|stopPropagation role="dialog">
       <div class="gallery-header">
@@ -149,9 +146,8 @@
           {@const photoUrl = getPhotoUrl(photo)}
           <div class="gallery-item" class:is-main={photo.isMain === 1}>
             {#if photoUrl}
-              <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions a11y-img-redundant-alt -->
               <button class="gallery-photo-btn" on:click={() => handleSetMain(photo.id)}>
-                <img src={photoUrl} alt="Plant photo" class="gallery-photo" />
+                <img src={photoUrl} alt="" class="gallery-photo" />
               </button>
             {/if}
             {#if photo.isMain === 1}
@@ -169,15 +165,14 @@
         
         <!-- Add Photo Slot -->
         {#if photos.length < MAX_PHOTOS}
-          <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
-          <div class="gallery-item add-slot" on:click={triggerFileInput} role="button" tabindex="0">
+          <button class="gallery-item add-slot" on:click={triggerFileInput} type="button">
             <span class="add-icon">+</span>
             <span class="add-text">{$t('addPhoto')}</span>
-          </div>
+          </button>
         {/if}
       </div>
     </div>
-  </div>
+  </button>
 {/if}
 
 <style>
