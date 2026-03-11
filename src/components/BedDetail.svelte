@@ -11,7 +11,6 @@
   let isEditing = false;
   let editName = '';
   let editNotes = '';
-  let lastPlantId = null;
 
   const MAX_BED_PLANTS = 5;
 
@@ -21,9 +20,6 @@
 
   // Update edit fields when plant changes (but not while actively editing)
   $: if ($selectedPlant && !isEditing) {
-    if ($selectedPlant.id !== lastPlantId) {
-      lastPlantId = $selectedPlant.id;
-    }
     editName = $selectedPlant.name;
     editNotes = $selectedPlant.notes || '';
   }

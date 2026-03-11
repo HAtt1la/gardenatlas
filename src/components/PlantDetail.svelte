@@ -10,7 +10,6 @@
   let editNotes = '';
   let editEmoji = '';
   let showEventForm = false;
-  let lastPlantId = null;
 
   // Fruit emojis for tree customization
   const fruitEmojis = ['🍎', '🍐', '🥭', '🥜', '🌰', '🌳', '🌲','🍒', '🟣', '🍑', '🍊'];
@@ -21,9 +20,6 @@
 
   // Update edit fields when plant changes (but not while actively editing)
   $: if ($selectedPlant && !isEditing) {
-    if ($selectedPlant.id !== lastPlantId) {
-      lastPlantId = $selectedPlant.id;
-    }
     editName = $selectedPlant.name;
     editNotes = $selectedPlant.notes || '';
     editEmoji = $selectedPlant.emoji || '';
