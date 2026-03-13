@@ -40,6 +40,15 @@ db.version(5).stores({
   photos: '++id, plantId, isMain'
 });
 
+// Version 6: Add color field for grape variety color
+db.version(6).stores({
+  plants: '++id, name, type, row, x, y, emoji, color, bedId',
+  events: '++id, [plantId+eventType], plantId, eventType, date, modifiedAt',
+  settings: 'key',
+  photos: '++id, plantId, isMain'
+});
+
+
 // Event types - labels are i18n keys, will be translated at runtime
 export const EVENT_TYPES = [
   { id: 'planted', label: 'planted', icon: '🌱' },
@@ -55,6 +64,7 @@ export const EVENT_TYPES = [
 export const PLANT_TYPES = [
   { id: 'grape', label: 'grape', icon: '🍇' },
   { id: 'fruit', label: 'fruit', icon: '🌳' },
+  { id: 'raspberry', label: 'raspberry', icon: '🫐' },
   { id: 'bed', label: 'bed', icon: '🥬' },
   { id: 'other', label: 'other', icon: '🌿' }
 ];
@@ -63,6 +73,7 @@ export const PLANT_TYPES = [
 export const DEFAULT_INTERVALS = {
   grape: { spray: 14 },
   fruit: { spray: 21 },
+  raspberry: { spray: 14 },
   bed: { spray: null },
   other: { spray: null }
 };

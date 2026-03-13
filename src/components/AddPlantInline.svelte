@@ -12,8 +12,24 @@
     '🧅', '🥕', '🥔', '🥒', '🌽', '🥦', '🥬'
   ];
 
+  const PLANT_COLORS = [
+    { label: 'Red',       value: '#c0392b' },
+    { label: 'Orange',    value: '#e67e22' },
+    { label: 'Yellow',    value: '#f0c040' },
+    { label: 'Lime',      value: '#6aaa2a' },
+    { label: 'Green',     value: '#27ae60' },
+    { label: 'Teal',      value: '#16a085' },
+    { label: 'Sky',       value: '#2980b9' },
+    { label: 'Lavender',  value: '#8e44ad' },
+    { label: 'Pink',      value: '#e07a8e' },
+    { label: 'Brown',     value: '#8b5e3c' },
+    { label: 'Slate',     value: '#7f8c8d' },
+    { label: 'Gold',      value: '#d4c46e' },
+  ];
+
   let newPlantName = '';
   let selectedEmoji = '🌿';
+  let selectedColor = '#27ae60';
   let newPlantAmount = 1;
 
   async function handleAddPlant() {
@@ -28,6 +44,7 @@
         await addPlantToBed(bedId, {
           name: newPlantName.trim(),
           emoji: selectedEmoji,
+          color: selectedColor,
           amount: newPlantAmount,
           notes: null
         });
@@ -37,6 +54,7 @@
           name: newPlantName.trim(),
           type: 'other',
           emoji: selectedEmoji,
+          color: selectedColor,
           row: null,
           x: null,
           y: null,
@@ -47,10 +65,11 @@
 
       await loadPlants();
       showToast($t('plantAdded'), 'success');
-      
+
       // Reset form
       newPlantName = '';
       selectedEmoji = '🌿';
+      selectedColor = '#27ae60';
       newPlantAmount = 1;
 
       // Call callback if provided
@@ -66,6 +85,7 @@
   function handleCancel() {
     newPlantName = '';
     selectedEmoji = '🌿';
+    selectedColor = '#27ae60';
     newPlantAmount = 1;
     if (onSuccess) {
       onSuccess(); // Trigger callback to close form
@@ -116,10 +136,27 @@
     </div>
   </div>
 
+  <div class="form-group">
+    <div class="form-label">{$t('plantColor')}</div>
+    <div class="color-grid">
+      {#each PLANT_COLORS as c}
+        <button
+          type="button"
+          class="color-btn {selectedColor === c.value ? 'selected' : ''}"
+          style="background: {c.value}"
+          on:click={() => selectedColor = c.value}
+          title={c.label}
+        >
+          {#if selectedColor === c.value}<span class="color-check">✓</span>{/if}
+        </button>
+      {/each}
+    </div>
+  </div>
+
   <div class="preview-section">
     <div class="form-label">{$t('preview')}</div>
     <div class="preview-plant">
-      <span class="preview-emoji">{selectedEmoji}</span>
+      <span class="preview-emoji" style="background: {selectedColor}">{selectedEmoji}</span>
       <span class="preview-name">{newPlantName || ($t('plantName') || 'Plant Name')}</span>
     </div>
   </div>
@@ -224,6 +261,47 @@
 
   .preview-emoji {
     font-size: 2rem;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .color-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .color-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.15s, border-color 0.15s;
+  }
+
+  .color-btn:hover {
+    transform: scale(1.15);
+  }
+
+  .color-btn.selected {
+    border-color: #333;
+  }
+
+  .color-check {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
   }
 
   .preview-name {

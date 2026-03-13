@@ -12,7 +12,7 @@
   let editName = '';
   let editNotes = '';
 
-  const MAX_BED_PLANTS = 5;
+  const MAX_BED_PLANTS = 6;
 
   $: if ($selectedPlant?.id) {
     loadBedPlants();

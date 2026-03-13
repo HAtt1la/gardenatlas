@@ -9,20 +9,37 @@
   let editName = '';
   let editNotes = '';
   let editEmoji = '';
+  let editColor = '';
   let showEventForm = false;
 
   // Fruit emojis for tree customization
   const fruitEmojis = ['🍎', '🍐', '🥭', '🥜', '🌰', '🌳', '🌲','🍒', '🟣', '🍑', '🍊'];
 
-  // Vine emojis for grapevine customization (purple, white, red)
-  const vineEmojis = ['🍇', '🍈', '🥭'];
+  // Shared color palette used for all plant types
+  const PLANT_COLORS = [
+    { label: 'Red',       value: '#c0392b' },
+    { label: 'Orange',    value: '#e67e22' },
+    { label: 'Yellow',    value: '#f0c040' },
+    { label: 'Lime',      value: '#6aaa2a' },
+    { label: 'Green',     value: '#27ae60' },
+    { label: 'Teal',      value: '#16a085' },
+    { label: 'Sky',       value: '#2980b9' },
+    { label: 'Lavender',  value: '#8e44ad' },
+    { label: 'Pink',      value: '#e07a8e' },
+    { label: 'Brown',     value: '#8b5e3c' },
+    { label: 'Slate',     value: '#7f8c8d' },
+    { label: 'White',     value: '#d4c46e' },
+  ];
 
+  // Vine-specific colors (subset used as defaults for grape rows)
+  const vineColors = PLANT_COLORS;
 
   // Update edit fields when plant changes (but not while actively editing)
   $: if ($selectedPlant && !isEditing) {
     editName = $selectedPlant.name;
     editNotes = $selectedPlant.notes || '';
     editEmoji = $selectedPlant.emoji || '';
+    editColor = $selectedPlant.color || '';
   }
 
   $: plantType = PLANT_TYPES.find(t => t.id === $selectedPlant?.type);
@@ -36,9 +53,13 @@
       name: editName,
       notes: editNotes
     };
-    // Save emoji for fruit trees and grapevines
-    if (($selectedPlant?.type === 'fruit' || $selectedPlant?.type === 'grape') && editEmoji) {
+    // Save emoji for fruit trees
+    if ($selectedPlant?.type === 'fruit' && editEmoji) {
       updateData.emoji = editEmoji;
+    }
+    // Save color for all plant types that support it
+    if (editColor) {
+      updateData.color = editColor;
     }
     await updatePlant($selectedPlant.id, updateData);
     isEditing = false;
@@ -101,8 +122,15 @@
     <!-- Plant Header -->
     <div class="plant-header">
       <div class="plant-icon">
-        {#if isEditing && ($selectedPlant?.type === 'fruit' || $selectedPlant?.type === 'grape')}
-          {editEmoji}
+        {#if ($selectedPlant?.type === 'grape' || $selectedPlant?.type === 'raspberry' || $selectedPlant?.type === 'fruit' || $selectedPlant?.type === 'other' || $selectedPlant?.type === 'bed-plant')}
+          {@const displayColor = isEditing ? (editColor || $selectedPlant.color) : $selectedPlant.color}
+          {#if displayColor}
+            <span class="plant-color-preview" style="background: {displayColor}">
+              {$selectedPlant.emoji || plantType?.icon || '🌿'}
+            </span>
+          {:else}
+            {$selectedPlant.emoji || plantType?.icon || '🌿'}
+          {/if}
         {:else}
           {$selectedPlant.emoji || plantType?.icon || '🌿'}
         {/if}
@@ -186,19 +214,40 @@
           </div>
         {/if}
         
-        <!-- Emoji Picker for Grapevines -->
+        <!-- Color Picker for Grapevines -->
         {#if $selectedPlant?.type === 'grape'}
           <div class="emoji-picker">
             <div class="section-title">{$t('vineColor')}</div>
-            <div class="emoji-grid vine-grid">
-              {#each vineEmojis as emoji}
-                <button 
+            <div class="color-grid">
+              {#each vineColors as c}
+                <button
                   type="button"
-                  class="emoji-btn {editEmoji === emoji ? 'selected' : ''}"
-                  on:click={() => editEmoji = emoji}
-                  title={emoji}
+                  class="color-btn {editColor === c.value ? 'selected' : ''}"
+                  style="background: {c.value}"
+                  on:click={() => editColor = c.value}
+                  title={c.label}
                 >
-                  {emoji}
+                  {#if editColor === c.value}<span class="color-check">✓</span>{/if}
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        <!-- Color Picker for all other types -->
+        {#if $selectedPlant?.type !== 'grape' && $selectedPlant?.type !== 'bed'}
+          <div class="emoji-picker">
+            <div class="section-title">{$t('plantColor')}</div>
+            <div class="color-grid">
+              {#each PLANT_COLORS as c}
+                <button
+                  type="button"
+                  class="color-btn {editColor === c.value ? 'selected' : ''}"
+                  style="background: {c.value}"
+                  on:click={() => editColor = c.value}
+                  title={c.label}
+                >
+                  {#if editColor === c.value}<span class="color-check">✓</span>{/if}
                 </button>
               {/each}
             </div>
@@ -594,6 +643,51 @@
 
   .emoji-grid.vine-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .color-grid {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .color-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.15s, border-color 0.15s;
+  }
+
+  .color-btn:hover {
+    transform: scale(1.15);
+  }
+
+  .color-btn.selected {
+    border-color: #333;
+  }
+
+  .color-check {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  }
+
+  .plant-color-preview {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    font-size: 1.75rem;
   }
 
   .emoji-btn {
