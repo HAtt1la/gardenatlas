@@ -45,10 +45,10 @@ gardenatlas/
 | Feature | Description | Status |
 |---------|-------------|--------|
 | **Garden Map View** | Top-down SVG visualization of entire garden | ✅ |
-| **Plant Markers** | 11 fruit trees, 3 raised beds, 20 grapevines (4 rows × 5) | ✅ |
-| **Bed Plant Management** | Add up to 5 plants per bed with emojis and amounts | ✅ |
-| **Custom Plants Section** | Add herbs, flowers, and other plants with custom emojis | ✅ |
-| **Color Coding** | Visual indicators for spray schedule and plant care status | ✅ |
+| **Plant Markers** | 25 fruit trees, 3 raised beds, 20 grapevines (4 rows × 5), 3 raspberry plants | ✅ |
+| **Bed Plant Management** | Add up to 6 plants per bed with emojis, colors and amounts | ✅ |
+| **Custom Plants Section** | Add herbs, flowers, and other plants with custom emojis and colors | ✅ |
+| **Color Coding** | Visual indicators for spray schedule, plant care status, and variety color | ✅ |
 | **Plant Details** | Name, ID, type, notes, full event history | ✅ |
 | **Edit Plants** | Inline editing of plant name and notes (all plant types) | ✅ |
 | **Delete Plants** | Remove bed plants and herbs/flowers (trees/vines are permanent) | ✅ |
@@ -147,9 +147,9 @@ npm run preview
 - **Storage**: IndexedDB via Dexie.js
 - **Location**: Browser local storage (persistent)
 - **Size**: Unlimited (within browser quotas)
-- **Schema Version**: 4
-- **Tables**: 
-  - `plants` - Plant information (name, type, emoji, bedId, amount)
+- **Schema Version**: 6
+- **Tables**:
+  - `plants` - Plant information (name, type, emoji, color, bedId, amount)
   - `events` - Event history with timestamps
   - `settings` - User preferences and intervals
   - `photos` - Plant photos stored as compressed blobs
@@ -157,30 +157,64 @@ npm run preview
 ### Sample Data
 
 On first launch, the app initializes with sample data:
-- **11 Fruit Trees**: Apple (2), Pear (2), Cherry, Plum (2), Apricot, Peach, Walnut, Quince
-- **3 Raised Beds**: Bed A (tomatoes), Bed B (cucumbers), Bed C (herbs)
-- **20 Grapevines**: 4 rows × 5 vines each
-- **Custom Plants**: Add your own herbs, flowers, and other plants with emoji icons
+- **25 Fruit Trees**: Apple (2), Pear (2), Cherry, Plum (2), Apricot, Peach, Walnut, Quince, and more
+- **3 Raised Beds**: Bed A (tomatoes/peppers), Bed B (cucumbers/herbs), Bed C (salad/spinach)
+- **20 Grapevines**: 4 rows × 5 vines, each row with a distinct variety color (purple, green, red, mixed)
+- **3 Raspberry plants**: 1 vertical line with red and yellow varieties
+- **Custom Plants**: Add your own herbs, flowers, and other plants with emoji icons and colors
 - **Sample Events**: Various spray, planting, and pruning events
 
 ### Default Spray Intervals
 
 - **Grapevines**: 14 days
+- **Raspberries**: 14 days
 - **Fruit Trees**: 21 days
 - **Raised Beds**: N/A (null)
 - **Custom Plants**: N/A (null)
 
 These can be customized in Settings.
 
-### Adding Custom Plants
+### Variety Colors
+
+Every plant can have a background color assigned to visually distinguish varieties — especially useful when multiple plants share the same emoji (e.g., different grape varieties or herb species):
+
+- **Grapevines**: Each vine has a variety color (purple, green, red, rosé, etc.) shown as the filled circle on the map
+- **Raspberries**: Red or yellow background distinguishes summer vs. autumn and yellow varieties
+- **Fruit Trees**: Color the circle to indicate variety (e.g., red for Red Chief apple, yellow for Golden Delicious)
+- **Herbs & Flowers**: Use color to tell apart plants that share the same emoji (e.g., two different 🌿 herbs)
+- **Bed Plants**: Color is visible in the bed detail view
+
+The outer ring around each marker always shows the **care/spray status** (green = ok, orange = soon, red = overdue), while the inner circle shows the **variety color**.
+
+To change a plant's color: open the plant detail, tap ✏️ to edit, and pick from the 12-color palette.
+
+### Garden Layout
+
+The garden map is organized into sections (top to bottom):
+
+```
+┌─────────────────────────────┬──────────┐
+│  🌳 Fruit Trees (5×5)       │🍓 Raspb. │
+│                             │  (vert.) │
+├─────────────────────────────┴──────────┤
+│  🥬 Raised Beds A / B / C (full width) │
+├────────────────────────────────────────┤
+│  🍇 Grapevines (4 rows × 5)            │
+├────────────────────────────────────────┤
+│  🌿 Herbs & Flowers (unlimited)         │
+└────────────────────────────────────────┘
+```
+
+
 
 1. Scroll to the "Herbs & Flowers" section on the map
 2. Click the "+ Add New Plant" button
 3. An inline form appears (no page navigation)
 4. Enter the plant name
-5. Select an emoji icon (40+ plant-related emojis available)
-6. Preview your plant
-7. Click "Add Plant"
+5. Select an emoji icon (26+ plant-related emojis available)
+6. Choose a background color from the 12-color palette to visually distinguish the plant
+7. Preview your plant with the colored circle
+8. Click "Add Plant"
 
 Custom plants support all features: notes, events, spray tracking, and more.
 
@@ -208,8 +242,9 @@ Custom plants support all features: notes, events, spray tracking, and more.
    - Enter plant name (e.g., Tomato, Basil)
    - Set quantity amount
    - Choose an emoji icon
+   - Choose a background color
 4. Click any plant emoji to view its details and event history
-5. Each bed supports up to 5 different plant types
+5. Each bed supports up to 6 different plant types
 6. Plants in beds display with color-coded status rings:
    - 🟢 Green: Well cared for (within 7 days)
    - 🟡 Yellow: Needs attention (7-14 days)
@@ -323,5 +358,5 @@ This project is created for personal garden management. Feel free to use and mod
 
 ---
 
-**Version**: 1.3.0  
-**Last Updated**: February 6, 2026
+**Version**: 1.4.0
+**Last Updated**: March 13, 2026
