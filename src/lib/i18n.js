@@ -21,6 +21,7 @@ const translations = {
     fruitTrees: 'Fruit Trees',
     raisedBeds: 'Raised Beds',
     grapevines: 'Grapevines',
+    raspberries: 'Raspberries',
     herbsFlowers: 'Herbs & Flowers',
     addNewPlant: 'Add New Plant',
     
@@ -59,6 +60,7 @@ const translations = {
     bedFull: 'Bed Full',
     treeIcon: 'Tree Icon',
     vineColor: 'Vine Color',
+    plantColor: 'Plant Color',
     amount: 'Amount',
     exampleBedPlants: 'e.g., Tomato, Basil, Pepper...',
     exampleOtherPlants: 'e.g., Rose, Lavender...',
@@ -66,6 +68,7 @@ const translations = {
     // Plant types
     fruit: 'Fruit Tree',
     grape: 'Grapevine',
+    raspberry: 'Raspberry',
     bed: 'Raised Bed',
     other: 'Other Plant',
     
@@ -171,6 +174,7 @@ const translations = {
     fruitTrees: 'Gyümölcsfák',
     raisedBeds: 'Magaságyások',
     grapevines: 'Szőlőtőke',
+    raspberries: 'Málna',
     herbsFlowers: 'Gyógynövények és virágok',
     addNewPlant: 'Új növény hozzáadása',
     
@@ -209,6 +213,7 @@ const translations = {
     bedFull: 'Ágy megtelt',
     treeIcon: 'Fa ikon',
     vineColor: 'Szőlő szín',
+    plantColor: 'Növény szín',
     amount: 'Mennyiség',
     exampleBedPlants: 'pl. Paradicsom, Bazsalikom, Paprika...',
     exampleOtherPlants: 'pl. Rózsa, Levanda...',
@@ -216,6 +221,7 @@ const translations = {
     // Plant types
     fruit: 'Gyümölcsfa',
     grape: 'Szőlőtő',
+    raspberry: 'Málna',
     bed: 'Magaságyás',
     other: 'Egyéb növény',
     

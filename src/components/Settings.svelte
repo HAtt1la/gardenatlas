@@ -153,10 +153,24 @@
       <div class="interval-item">
         <label for="fruit-interval">🌳 {$t('fruitTrees')}</label>
         <div class="interval-input-wrapper">
-          <input 
-            type="number" 
+          <input
+            type="number"
             id="fruit-interval"
             bind:value={sprayIntervals.fruit.spray}
+            min="1"
+            max="365"
+          />
+          <span class="interval-unit">{$t('days')}</span>
+        </div>
+      </div>
+
+      <div class="interval-item">
+        <label for="raspberry-interval">🫐 {$t('raspberries')}</label>
+        <div class="interval-input-wrapper">
+          <input
+            type="number"
+            id="raspberry-interval"
+            bind:value={sprayIntervals.raspberry.spray}
             min="1"
             max="365"
           />

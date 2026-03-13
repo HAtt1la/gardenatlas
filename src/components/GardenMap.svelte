@@ -10,20 +10,26 @@
   let showAddPlant = false;
 
   // Garden dimensions (visual units)
-  const GARDEN_WIDTH = 400;
+  const GARDEN_WIDTH = 600;
   const GARDEN_HEIGHT = 950;
-  
-  // Layout sections
+
+  // Left column: fruit trees (x: 0-470), right column: raspberry (x: 480-600)
+  // Trees band height: ~310px (5 rows × ~58px + top label)
+  const TREES_COLS = 5;
+  const TREES_X_START = 30;
+  const RASP_X = 530; // center x of raspberry column
+
   const SECTIONS = {
-    trees: { y: 30, labelKey: 'fruitTrees' },
-    beds: { y: 355, labelKey: 'raisedBeds' },
-    grapes: { y: 460, labelKey: 'grapevines' },
-    other: { y: 650, labelKey: 'herbsFlowers' }
+    treesAndRasp: { y: 20 },
+    beds:         { y: 360 },
+    grapes:       { y: 470 },
+    other:        { y: 660 }
   };
 
   $: grapes = $plants.filter(p => p.type === 'grape').slice(0, 20); // Only show first 20 vines (4 rows)
   $: beds = $plants.filter(p => p.type === 'bed');
   $: trees = $plants.filter(p => p.type === 'fruit');
+  $: raspberries = $plants.filter(p => p.type === 'raspberry');
   $: otherPlants = $plants.filter(p => p.type === 'other');
 
   onMount(async () => {
@@ -64,7 +70,7 @@
     for (const bed of currentBeds) {
       const plants = await getPlantsInBed(bed.id);
       console.log(`Bed ${bed.id} (${bed.name}):`, plants.length, 'plants', plants);
-      newBedPlants[bed.id] = plants.slice(0, 5); // Max 5 plants per bed
+      newBedPlants[bed.id] = plants.slice(0, 6); // Max 6 plants per bed
     }
     bedPlants = { ...newBedPlants }; // Force reactivity with spread
     console.log('Updated bedPlants:', bedPlants);
@@ -90,111 +96,152 @@
   <svg viewBox="0 0 {GARDEN_WIDTH} {GARDEN_HEIGHT}" class="garden-svg">
     <!-- Background -->
     <rect x="0" y="0" width={GARDEN_WIDTH} height={GARDEN_HEIGHT} fill="#e8f5e9" />
-    
+
+    <!-- Vertical divider: fruit trees | raspberry column -->
+    <line x1="480" y1="0" x2="480" y2="350" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
+
+    <!-- Horizontal dividers -->
+    <line x1="0" y1="350" x2={GARDEN_WIDTH} y2="350" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
+    <line x1="0" y1="460" x2={GARDEN_WIDTH} y2="460" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
+    <line x1="0" y1="650" x2={GARDEN_WIDTH} y2="650" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
+
     <!-- Section labels -->
-    <text x="10" y={SECTIONS.trees.y - 10} class="section-label">🌳 {$t(SECTIONS.trees.labelKey)}</text>
-    <text x="10" y={SECTIONS.beds.y - 10} class="section-label">🥬 {$t(SECTIONS.beds.labelKey)}</text>
-    <text x="10" y={SECTIONS.grapes.y - 10} class="section-label">🍇 {$t(SECTIONS.grapes.labelKey)}</text>
-    <text x="10" y={SECTIONS.other.y - 10} class="section-label">🌿 {$t(SECTIONS.other.labelKey)}</text>
-    
-    <!-- Section dividers -->
-    <line x1="0" y1="330" x2={GARDEN_WIDTH} y2="330" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
-    <line x1="0" y1="430" x2={GARDEN_WIDTH} y2="430" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
-    <line x1="0" y1="640" x2={GARDEN_WIDTH} y2="640" stroke="#c8e6c9" stroke-width="2" stroke-dasharray="5,5" />
-    
-    <!-- Fruit Trees (top section) -->
+    <text x="10" y={SECTIONS.treesAndRasp.y + 12} class="section-label">🌳 {$t('fruitTrees')}</text>
+    <text x="487" y={SECTIONS.treesAndRasp.y + 12} class="section-label">🫐 {$t('raspberries')}</text>
+    <text x="10" y={SECTIONS.beds.y + 12} class="section-label">🥬 {$t('raisedBeds')}</text>
+    <text x="10" y={SECTIONS.grapes.y + 12} class="section-label">🍇 {$t('grapevines')}</text>
+    <text x="10" y={SECTIONS.other.y + 12} class="section-label">🌿 {$t('herbsFlowers')}</text>
+
+    <!-- Fruit Trees (left column, 5 cols × 5 rows) -->
     {#each trees as tree, i}
-      <g 
+      {@const col = i % TREES_COLS}
+      {@const row = Math.floor(i / TREES_COLS)}
+      {@const treeColor = tree.color || '#27ae60'}
+      <g
         class="plant-marker"
         on:click={(e) => handlePlantClick(tree, e)}
         on:keydown={(e) => e.key === 'Enter' && handlePlantClick(tree, e)}
         role="button"
         tabindex="0"
       >
-        <g transform="translate({tree.x || (30 + i * 35)}, {tree.y || SECTIONS.trees.y + 40})">
-          <circle r="18" fill={getStatusColor(tree.id)} opacity="0.3" class="marker-glow" />
-          <circle r="12" fill={getStatusColor(tree.id)} class="marker-circle" />
+        <g transform="translate({TREES_X_START + 30 + col * 82}, {SECTIONS.treesAndRasp.y + 40 + row * 58})">
+          <circle r="20" fill={getStatusColor(tree.id)} opacity="0.2" class="marker-glow" />
+          <circle r="14" fill={treeColor} opacity="0.85" class="marker-circle" />
           <text y="4" class="plant-icon">{tree.emoji || '🌳'}</text>
           <text y="28" class="plant-label">{tree.name}</text>
           <text y="40" class="plant-id">#{tree.id}</text>
         </g>
       </g>
     {/each}
-    
-    <!-- Raised Beds (middle section) -->
+
+    <!-- Raspberry vertical line (right column, plants stacked top to bottom) -->
+    <!-- Vertical trellis line -->
+    <line
+      x1={RASP_X}
+      y1={SECTIONS.treesAndRasp.y + 28}
+      x2={RASP_X}
+      y2={SECTIONS.treesAndRasp.y + 28 + (raspberries.length - 1) * 90 + 10}
+      stroke="#c2185b"
+      stroke-width="1.5"
+      opacity="0.35"
+    />
+    {#each raspberries as raspberry, i}
+      {@const raspColor = raspberry.color || '#c0392b'}
+      <g
+        class="plant-marker"
+        on:click={(e) => handlePlantClick(raspberry, e)}
+        on:keydown={(e) => e.key === 'Enter' && handlePlantClick(raspberry, e)}
+        role="button"
+        tabindex="0"
+      >
+        <g transform="translate({RASP_X}, {SECTIONS.treesAndRasp.y + 35 + i * 90})">
+          <circle r="20" fill={getStatusColor(raspberry.id)} opacity="0.2" class="marker-glow" />
+          <circle r="14" fill={raspColor} opacity="0.85" class="marker-circle" />
+          <text y="3" class="plant-icon-small">{raspberry.emoji || '🍓'}</text>
+          <text y="26" class="plant-label" text-anchor="middle">{raspberry.name}</text>
+        </g>
+      </g>
+    {/each}
+
+    <!-- Raised Beds (full width, below trees) -->
     {#each beds as bed, i}
       {@const plantsInBed = bedPlants[bed.id] || []}
-      <g 
+      <g
         class="plant-marker"
         on:click={(e) => handlePlantClick(bed, e)}
         on:keydown={(e) => e.key === 'Enter' && handlePlantClick(bed, e)}
         role="button"
         tabindex="0"
       >
-        <g transform="translate({bed.x || (100 + i * 200)}, {bed.y || SECTIONS.beds.y + 35})">
-          <rect x="-65" y="-30" width="130" height="60" rx="5" fill={getStatusColor(bed.id)} opacity="0.3" class="marker-glow" />
-          <rect x="-60" y="-25" width="120" height="50" rx="3" fill={getStatusColor(bed.id)} class="marker-rect" />
-          
-          <!-- Show plant emojis in bed -->
+        <g transform="translate({90 + i * 185}, {SECTIONS.beds.y + 45})">
+          <rect x="-75" y="-32" width="150" height="65" rx="5" fill={getStatusColor(bed.id)} opacity="0.2" class="marker-glow" />
+          <rect x="-70" y="-27" width="140" height="55" rx="3" fill={getStatusColor(bed.id)} opacity="0.5" class="marker-rect" />
+
           {#if plantsInBed.length > 0}
             {#each plantsInBed as plant, idx}
-              <text x={-40 + idx * 24} y="5" class="bed-plant-icon">{plant.emoji || '🌱'}</text>
+              <text x={-45 + idx * 20} y="12" class="bed-plant-icon">{plant.emoji || '🌱'}</text>
             {/each}
+          {:else}
+            <text x="0" y="10" class="bed-empty-label">empty</text>
           {/if}
-          
-          <text y="48" class="plant-label">{bed.name}</text>
-          <text y="62" class="plant-id">#{bed.id}</text>
+
+          <text y="-10" class="plant-label">{bed.name}</text>
+          <text y="36" class="plant-id">#{bed.id}</text>
         </g>
       </g>
     {/each}
-    
-    <!-- Grapevines (bottom section - 4 rows, 5 per row) -->
+
+    <!-- Grapevines (4 rows, 5 per row) -->
     {#each grapes as grape, i}
       {@const row = Math.floor(i / 5)}
       {@const col = i % 5}
-      <g 
+      {@const vineColor = grape.color || '#8e44ad'}
+      <g
         class="plant-marker"
         on:click={(e) => handlePlantClick(grape, e)}
         on:keydown={(e) => e.key === 'Enter' && handlePlantClick(grape, e)}
         role="button"
         tabindex="0"
       >
-        <g transform="translate({50 + col * 75}, {SECTIONS.grapes.y + 25 + row * 35})">
-          <circle r="14" fill={getStatusColor(grape.id)} opacity="0.3" class="marker-glow" />
-          <circle r="10" fill={getStatusColor(grape.id)} class="marker-circle" />
-          <text y="3" class="plant-icon-small">{grape.emoji || '🍇'}</text>
-          <text x="18" y="4" class="plant-label-small">{grape.name}</text>
+        <g transform="translate({60 + col * 96}, {SECTIONS.grapes.y + 30 + row * 38})">
+          <!-- Status glow ring -->
+          <circle r="20" fill={getStatusColor(grape.id)} opacity="0.2" class="marker-glow" />
+          <!-- Variety color circle -->
+          <circle r="14" fill={vineColor} opacity="0.85" class="marker-circle" />
+          <text y="3" class="plant-icon-small">🍇</text>
+          <text x="22" y="4" class="plant-label-small">{grape.name}</text>
         </g>
       </g>
     {/each}
-    
+
     <!-- Grape row lines -->
     {#each Array(4) as _, row}
-      <line 
-        x1="30" 
-        y1={SECTIONS.grapes.y + 25 + row * 35} 
-        x2={GARDEN_WIDTH - 30} 
-        y2={SECTIONS.grapes.y + 25 + row * 35} 
-        stroke="#8d6e63" 
-        stroke-width="1" 
+      <line
+        x1="30"
+        y1={SECTIONS.grapes.y + 30 + row * 38}
+        x2={GARDEN_WIDTH - 30}
+        y2={SECTIONS.grapes.y + 30 + row * 38}
+        stroke="#8d6e63"
+        stroke-width="1"
         opacity="0.3"
       />
     {/each}
-    
+
     <!-- Other Plants (Herbs & Flowers - 5 per row, unlimited rows) -->
     {#each otherPlants as plant, i}
       {@const row = Math.floor(i / 5)}
       {@const col = i % 5}
-      <g 
+      {@const otherColor = plant.color || '#7f8c8d'}
+      <g
         class="plant-marker"
         on:click={(e) => handlePlantClick(plant, e)}
         on:keydown={(e) => e.key === 'Enter' && handlePlantClick(plant, e)}
         role="button"
         tabindex="0"
       >
-        <g transform="translate({50 + col * 75}, {SECTIONS.other.y + 20 + row * 40})">
-          <circle r="12" fill={getStatusColor(plant.id)} opacity="0.3" class="marker-glow" />
-          <circle r="9" fill={getStatusColor(plant.id)} class="marker-circle" />
+        <g transform="translate({60 + col * 96}, {SECTIONS.other.y + 25 + row * 45})">
+          <circle r="16" fill={getStatusColor(plant.id)} opacity="0.2" class="marker-glow" />
+          <circle r="11" fill={otherColor} opacity="0.85" class="marker-circle" />
           <text y="3.5" class="plant-icon-medium">{plant.emoji || '🌿'}</text>
           <text y="25" class="plant-label-small">{plant.name}</text>
         </g>
@@ -310,6 +357,14 @@
 
   .bed-plant-icon {
     font-size: 16px;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+  }
+
+  .bed-empty-label {
+    font-size: 7px;
+    fill: #aaa;
     text-anchor: middle;
     dominant-baseline: middle;
     pointer-events: none;
