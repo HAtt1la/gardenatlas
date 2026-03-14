@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Package dist
+        run: zip -r gardenatlas-${{ github.ref_name }}.zip dist/
+
+      - name: Create GitHub Release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const tag = context.ref.replace('refs/tags/', '');
+
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: `GardenAtlas ${tag}`,
+              body: `## GardenAtlas ${tag}\n\nSee [README](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/README.md) for full changelog and usage notes.`,
+              draft: false,
+              prerelease: tag.includes('-')
+            });
+
+            const asset = fs.readFileSync(`gardenatlas-${tag}.zip`);
+            await github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.data.id,
+              name: `gardenatlas-${tag}.zip`,
+              data: asset
+            });
+
+            console.log(`Release created: ${release.data.html_url}`);
