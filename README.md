@@ -359,5 +359,5 @@ This project is created for personal garden management. Feel free to use and mod
 
 ---
 
-**Version**: 1.5.0
+**Version**: 1.1.1
 **Last Updated**: March 14, 2026
