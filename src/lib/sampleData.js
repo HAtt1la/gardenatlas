@@ -3,7 +3,7 @@ import { db, getAllPlants } from './db.js';
 // Sample plant data based on the architecture plan:
 // - 4 grape rows × 5 grapevines = 20 grapes
 // - 3 raised beds
-// - 11 fruit trees
+// - 24 fruit trees (4 rows × 6)
 
 const SAMPLE_PLANTS = [
   // Fruit Trees (5 rows × 5 = 25 trees)
@@ -31,12 +31,11 @@ const SAMPLE_PLANTS = [
   { id: 18, name: 'Elderberry', type: 'fruit', row: null, x: 170, y: 230, notes: 'Black Elder', emoji: '🫐' },
   { id: 19, name: 'Hazelnut', type: 'fruit', row: null, x: 240, y: 230, notes: 'European', emoji: '🥜' },
   { id: 20, name: 'Chestnut', type: 'fruit', row: null, x: 310, y: 230, notes: 'Sweet Chestnut', emoji: '🌰' },
-  // Row 5
+  // Row 4 (last row)
   { id: 21, name: 'Ash Tree', type: 'fruit', row: null, x: 30, y: 280, notes: 'Ornamental', emoji: '🌳' },
   { id: 22, name: 'Maple', type: 'fruit', row: null, x: 100, y: 280, notes: 'Sugar Maple', emoji: '🍂' },
   { id: 23, name: 'Oak', type: 'fruit', row: null, x: 170, y: 280, notes: 'White Oak', emoji: '🌳' },
   { id: 24, name: 'Birch', type: 'fruit', row: null, x: 240, y: 280, notes: 'Silver Birch', emoji: '🌳' },
-  { id: 25, name: 'Hickory', type: 'fruit', row: null, x: 310, y: 280, notes: 'Shagbark', emoji: '🌳' },
 
   // Raised Beds (3 beds, wider)
   { id: 26, name: 'Bed A', type: 'bed', row: null, x: 70, notes: 'Tomatoes, peppers' },
