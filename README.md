@@ -45,7 +45,7 @@ gardenatlas/
 | Feature | Description | Status |
 |---------|-------------|--------|
 | **Garden Map View** | Top-down SVG visualization of entire garden | ✅ |
-| **Plant Markers** | 25 fruit trees, 3 raised beds, 20 grapevines (4 rows × 5), 3 raspberry plants | ✅ |
+| **Plant Markers** | 24 fruit trees, 3 raised beds, 20 grapevines (4 rows × 5), 3 raspberry plants | ✅ |
 | **Bed Plant Management** | Add up to 6 plants per bed with emojis, colors and amounts | ✅ |
 | **Custom Plants Section** | Add herbs, flowers, and other plants with custom emojis and colors | ✅ |
 | **Color Coding** | Visual indicators for spray schedule, plant care status, and variety color | ✅ |
@@ -157,7 +157,7 @@ npm run preview
 ### Sample Data
 
 On first launch, the app initializes with sample data:
-- **25 Fruit Trees**: Apple (2), Pear (2), Cherry, Plum (2), Apricot, Peach, Walnut, Quince, and more
+- **24 Fruit Trees**: Apple (2), Pear (2), Cherry, Plum (2), Apricot, Peach, Walnut, Quince, and more
 - **3 Raised Beds**: Bed A (tomatoes/peppers), Bed B (cucumbers/herbs), Bed C (salad/spinach)
 - **20 Grapevines**: 4 rows × 5 vines, each row with a distinct variety color (purple, green, red, mixed)
 - **3 Raspberry plants**: 1 vertical line with red and yellow varieties
@@ -178,13 +178,13 @@ These can be customized in Settings.
 
 Every plant can have a background color assigned to visually distinguish varieties — especially useful when multiple plants share the same emoji (e.g., different grape varieties or herb species):
 
-- **Grapevines**: Each vine has a variety color (purple, green, red, rosé, etc.) shown as the filled circle on the map
+- **Grapevines**: Each vine has a variety color shown as the card background tint on the map
 - **Raspberries**: Red or yellow background distinguishes summer vs. autumn and yellow varieties
-- **Fruit Trees**: Color the circle to indicate variety (e.g., red for Red Chief apple, yellow for Golden Delicious)
+- **Fruit Trees**: Color the card to indicate variety (e.g., red for Red Chief apple, yellow for Golden Delicious)
 - **Herbs & Flowers**: Use color to tell apart plants that share the same emoji (e.g., two different 🌿 herbs)
 - **Bed Plants**: Color is visible in the bed detail view
 
-The outer ring around each marker always shows the **care/spray status** (green = ok, orange = soon, red = overdue), while the inner circle shows the **variety color**.
+A small colored dot in the top-right corner of each card shows the **spray/care status** (green = ok, orange = soon, red = overdue), while the card background tint shows the **variety color**.
 
 To change a plant's color: open the plant detail, tap ✏️ to edit, and pick from the 12-color palette.
 
@@ -193,15 +193,16 @@ To change a plant's color: open the plant detail, tap ✏️ to edit, and pick f
 The garden map is organized into sections (top to bottom):
 
 ```
-┌─────────────────────────────┬──────────┐
-│  🌳 Fruit Trees (5×5)       │🍓 Raspb. │
-│                             │  (vert.) │
-├─────────────────────────────┴──────────┤
-│  🥬 Raised Beds A / B / C (full width) │
+┌───────────────────────────────┬────────┐
+│  🌳 Fruit Trees (6×4)         │🍓 Rasp │
+├───────────────────────────────┴────────┤
+│  🍇 Grapevines row 1                   │
+│  🍇 Grapevines row 2                   │
+│  🍇 Grapevines row 3                   │
+│  🥬 Raised Beds A / B / C              │
+│  🍇 Grapevines row 4                   │
 ├────────────────────────────────────────┤
-│  🍇 Grapevines (4 rows × 5)            │
-├────────────────────────────────────────┤
-│  🌿 Herbs & Flowers (unlimited)         │
+│  🌿 Herbs & Flowers (unlimited)        │
 └────────────────────────────────────────┘
 ```
 
@@ -358,5 +359,5 @@ This project is created for personal garden management. Feel free to use and mod
 
 ---
 
-**Version**: 1.4.0
-**Last Updated**: March 13, 2026
+**Version**: 1.1.1
+**Last Updated**: March 14, 2026

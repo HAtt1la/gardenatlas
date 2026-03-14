@@ -320,15 +320,13 @@
   }
 
   .plant-spots {
-    display: flex;
-    justify-content: space-around;
-    gap: 15px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
   }
 
   .plant-spot {
-    flex: 1;
     aspect-ratio: 1;
-    max-width: 100px;
     display: flex;
     flex-direction: column;
     align-items: center;
