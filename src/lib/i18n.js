@@ -162,6 +162,11 @@ const translations = {
     confirmClearAll: 'Are you sure you want to delete ALL data? This cannot be undone.',
     confirmClearAllSecond: 'Really delete everything?',
     confirmImport: 'This will replace all current data with {plants} plants and {events} events. Continue?',
+
+    // Backup banner
+    backupBannerText: 'No backup in 7 days — download one now?',
+    backupBannerDownload: 'Download backup',
+    backupBannerLater: 'Later',
   },
   
   hu: {
@@ -315,6 +320,11 @@ const translations = {
     confirmClearAll: 'Biztosan törölni szeretnéd az ÖSSZES adatot? Ez nem visszavonható.',
     confirmClearAllSecond: 'Tényleg mindent törölsz?',
     confirmImport: 'Ez lecseréli az összes jelenlegi adatot {plants} növényre és {events} eseményre. Folytatod?',
+
+    // Backup banner
+    backupBannerText: '7 napja nem volt mentés — letöltöd most?',
+    backupBannerDownload: 'Mentés letöltése',
+    backupBannerLater: 'Később',
   }
 };
 

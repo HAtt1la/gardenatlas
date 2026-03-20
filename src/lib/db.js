@@ -402,3 +402,34 @@ export async function deletePhoto(photoId) {
 export async function deletePhotosForPlant(plantId) {
   await db.photos.where('plantId').equals(plantId).delete();
 }
+
+// Auto-backup prompt logic
+// Returns true if the backup banner should be shown.
+// Prompt if: never backed up, or last backup/snooze was >7 days ago,
+// but not if snoozed within the last 3 days.
+const BACKUP_INTERVAL_DAYS = 7;
+const SNOOZE_DAYS = 3;
+
+export async function shouldShowBackupPrompt() {
+  const lastBackup = await getSetting('lastBackupDate', null);
+  const lastSnooze = await getSetting('lastBackupSnooze', null);
+  const now = Date.now();
+
+  if (lastSnooze) {
+    const snoozeAge = (now - new Date(lastSnooze).getTime()) / 86400000;
+    if (snoozeAge < SNOOZE_DAYS) return false;
+  }
+
+  if (!lastBackup) return true;
+
+  const backupAge = (now - new Date(lastBackup).getTime()) / 86400000;
+  return backupAge >= BACKUP_INTERVAL_DAYS;
+}
+
+export async function recordBackupDone() {
+  await setSetting('lastBackupDate', new Date().toISOString());
+}
+
+export async function snoozeBackupPrompt() {
+  await setSetting('lastBackupSnooze', new Date().toISOString());
+}

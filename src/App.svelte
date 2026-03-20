@@ -7,13 +7,18 @@
   import MultiEventForm from './components/MultiEventForm.svelte';
   import SearchBar from './components/SearchBar.svelte';
   import Toast from './components/Toast.svelte';
+  import BackupBanner from './components/BackupBanner.svelte';
   import { currentView, loadPlants, navigateToMap, navigateToSettings, navigateToMultiEvent, toasts, selectedPlant } from './lib/stores.js';
   import { initializeSampleData } from './lib/sampleData.js';
+  import { shouldShowBackupPrompt } from './lib/db.js';
   import { t } from './lib/i18n.js';
+
+  let showBackupBanner = false;
 
   onMount(async () => {
     await initializeSampleData();
     await loadPlants();
+    showBackupBanner = await shouldShowBackupPrompt();
   });
 
   // Determine if current plant is a bed
@@ -44,6 +49,11 @@
       </button>
     </div>
   </header>
+
+  <!-- Backup Banner -->
+  {#if showBackupBanner}
+    <BackupBanner onDismiss={() => showBackupBanner = false} />
+  {/if}
 
   <!-- Main Content -->
   <main class="main">

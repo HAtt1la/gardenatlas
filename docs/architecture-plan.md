@@ -150,6 +150,56 @@ A fully offline Progressive Web App (PWA) that runs in an Android browser (Chrom
 
 * Seasonal analytics
 
+### Custom Garden Layout (Staged Path)
+
+The current map is a hardcoded layout. The goal is to make it fully user-configurable in three stages, each building on the previous.
+
+---
+
+**Stage 1 — Parameterized existing layout (least effort)**
+
+The garden structure stays the same (rows, grids, named sections) but the parameters come from the DB instead of source code. The user can rename sections, change how many rows exist, and set how many plant slots each row has. The SVG map is regenerated from these stored parameters rather than hardcoded constants.
+
+*What changes:* A `layout` settings key stores section/row/slot counts. `GardenMap.svelte` reads from it instead of hardcoded values. A simple settings UI lets the user edit counts and names.
+
+*What stays the same:* The visual style, the card-based SVG rendering, the plant data model — all unchanged.
+
+---
+
+**Stage 2 — User-defined sections from scratch**
+
+User can create entirely new sections (not just edit existing ones). Each section has a name, a type (row or grid), and a slot count. The map auto-arranges sections top-to-bottom in declaration order. Plants fill slots by their assigned slot number.
+
+*What changes:* A `sections` DB table replaces the hardcoded section list. Section CRUD UI added to Settings. Map layout algorithm becomes data-driven.
+
+*What stays the same:* No drag, no coordinates — position is still implicit (slot index within section).
+
+---
+
+**Stage 3 — Visual section editor with explicit positioning**
+
+Sections become first-class objects with a visual editor. User can reorder sections by dragging them in a list, set spacing, and assign plants to specific named slots within a section. Still no free-canvas drag — position is slot-based but slots can have labels or coordinates within the section.
+
+*What changes:* Section editor screen, slot labeling, section reordering.
+
+### Photo Thumbnail as Plant Icon
+
+**Goal:** Replace the emoji-based plant icon on the garden map with a photo thumbnail for plants that have photos attached. The current card-style rectangle (colored cube) would be filled with the plant's own image, making the map more visually informative and personal.
+
+**Behaviour:**
+- If a plant has one or more photos, the map card displays the designated thumbnail photo cropped to fill the card area (`object-fit: cover`).
+- If a plant has multiple photos, the user can choose which photo acts as the thumbnail — separate from the existing "main photo" concept (main photo is the one shown large in the detail view; thumbnail is the one shown small on the map).
+- If a plant has no photos, the current emoji + color-coded background is used as-is — no regression.
+
+**Implementation notes:**
+- Add a `thumbnailPhotoId` field to the `plants` table in a new DB schema version (v8+).
+- In `GardenMap.svelte`, for each plant card: if `thumbnailPhotoId` is set, fetch the blob from the `photos` table and render it as a `<image>` element inside the SVG card using an object-URL; otherwise render the existing emoji `<text>` element.
+- In `PhotoGallery.svelte`, add a "Use as map thumbnail" button alongside the existing "Set as main" button. Wire it to a new `setThumbnailPhoto(plantId, photoId)` db function.
+- Object-URLs must be created on mount and revoked on component destroy to avoid memory leaks. Consider a small cache keyed by `photoId` so the same blob is not re-fetched on every map re-render.
+- The SVG `<image>` element requires a `clipPath` or `rx`/`ry` on a wrapping `<rect>` to preserve the rounded-corner card style.
+
+**Fallback priority:** thumbnail photo → emoji + color background.
+
 ## 10. Implemented Enhancements
 
 * ✅ Photo attachments per plant (up to 3 photos, auto-compressed, stored in IndexedDB)

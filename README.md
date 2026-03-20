@@ -319,6 +319,8 @@ Potential features for future versions:
 - Harvest yield tracking
 - Disease/pest logging
 - Planting calendar
+- Photo thumbnail as plant icon on the map — plant cards filled with the plant's own photo instead of emoji; user selects which photo acts as thumbnail when multiple are available; emoji fallback when no photo exists
+- Customizable garden layout — staged path from making the existing layout data-driven, through user-defined sections, to a full visual section editor with explicit plant positioning
 
 ## 🛠️ Technology Stack
 
