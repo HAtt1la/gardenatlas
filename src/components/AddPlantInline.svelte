@@ -1,18 +1,22 @@
 <script>
-  import { addPlant, addPlantToBed } from '../lib/db.js';
+  import { addPlant, addPlantToBed, convertPlaceholder } from '../lib/db.js';
   import { loadPlants, showToast } from '../lib/stores.js';
   import { t } from '../lib/i18n.js';
 
-  export let bedId = null; // If provided, adds plant to bed; otherwise creates new "other" plant
-  export let onSuccess = null; // Optional callback after successful addition
+  export let bedId = null;
+  export let onSuccess = null;
+  export let convertMode = false;
+  export let placeholderPlant = null;
+  export let rowSize = null;
   export let plantEmojis = [
     '🌿', '🌱', '🌾', '🌻', '🌺', '🌸', '🌼', '🌷', '🌹', '🏵️',
     '🥀', '💐', '🎍', '☘️','🌲',
     '🌳', '🌶️', '🫑', '🧄',
     '🧅', '🥕', '🥔', '🥒', '🌽', '🥦', '🥬'
   ];
+  export let plantColors = null; // if provided, overrides PLANT_COLORS
 
-  const PLANT_COLORS = [
+  const ALL_COLORS = [
     { label: 'Red',       value: '#c0392b' },
     { label: 'Orange',    value: '#e67e22' },
     { label: 'Yellow',    value: '#f0c040' },
@@ -27,10 +31,15 @@
     { label: 'Gold',      value: '#d4c46e' },
   ];
 
+  $: PLANT_COLORS = plantColors
+    ? plantColors.map(v => ALL_COLORS.find(c => c.value === v) ?? { label: v, value: v })
+    : ALL_COLORS;
+
   let newPlantName = '';
-  let selectedEmoji = '🌿';
-  let selectedColor = '#27ae60';
+  let selectedEmoji = plantEmojis[0] ?? '🌿';
+  let selectedColor = (plantColors ?? ['#27ae60'])[0];
   let newPlantAmount = 1;
+  let selectedPosition = null;
 
   async function handleAddPlant() {
     if (!newPlantName.trim()) {
@@ -39,7 +48,15 @@
     }
 
     try {
-      if (bedId) {
+      if (convertMode && placeholderPlant) {
+        await convertPlaceholder(
+          placeholderPlant.id,
+          newPlantName.trim(),
+          selectedEmoji,
+          selectedColor,
+          selectedPosition
+        );
+      } else if (bedId) {
         // Adding to a bed
         await addPlantToBed(bedId, {
           name: newPlantName.trim(),
@@ -68,9 +85,10 @@
 
       // Reset form
       newPlantName = '';
-      selectedEmoji = '🌿';
-      selectedColor = '#27ae60';
+      selectedEmoji = plantEmojis[0] ?? '🌿';
+      selectedColor = (plantColors ?? ['#27ae60'])[0];
       newPlantAmount = 1;
+      selectedPosition = null;
 
       // Call callback if provided
       if (onSuccess) {
@@ -84,9 +102,10 @@
 
   function handleCancel() {
     newPlantName = '';
-    selectedEmoji = '🌿';
-    selectedColor = '#27ae60';
+    selectedEmoji = plantEmojis[0] ?? '🌿';
+    selectedColor = (plantColors ?? ['#27ae60'])[0];
     newPlantAmount = 1;
+    selectedPosition = null;
     if (onSuccess) {
       onSuccess(); // Trigger callback to close form
     }
@@ -94,8 +113,16 @@
 </script>
 
 <div class="add-plant-form">
-  <h3 class="form-title">{bedId ? $t('addPlantToBed') : $t('addNewPlant')}</h3>
-  
+  <h3 class="form-title">
+    {#if convertMode}
+      {$t('convertPlaceholder')}
+    {:else if bedId}
+      {$t('addPlantToBed')}
+    {:else}
+      {$t('addNewPlant')}
+    {/if}
+  </h3>
+
   <div class="form-group">
     <label for="new-plant-name">{$t('plantName')}</label>
     <input
@@ -107,7 +134,7 @@
     />
   </div>
 
-  {#if bedId}
+  {#if bedId && !convertMode}
     <div class="form-group">
       <label for="new-plant-amount">{$t('amount')}</label>
       <input
@@ -116,6 +143,21 @@
         bind:value={newPlantAmount}
         min="1"
         max="99"
+        class="text-input"
+      />
+    </div>
+  {/if}
+
+  {#if convertMode && rowSize != null && rowSize > 1}
+    <div class="form-group">
+      <label for="plant-position">Column position (1–{rowSize}, leave blank = current)</label>
+      <input
+        type="number"
+        id="plant-position"
+        bind:value={selectedPosition}
+        min="1"
+        max={rowSize}
+        placeholder="Leave blank to keep current position"
         class="text-input"
       />
     </div>
@@ -166,7 +208,7 @@
       {$t('cancel')}
     </button>
     <button class="btn btn-primary" on:click={handleAddPlant}>
-      {$t('addPlant')}
+      {convertMode ? $t('save') : $t('addPlant')}
     </button>
   </div>
 </div>

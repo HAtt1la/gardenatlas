@@ -1,7 +1,6 @@
 <script>
-  import { onMount } from 'svelte';
   import { selectedPlant, loadPlants, showToast, navigateToPlantDetail } from '../lib/stores.js';
-  import { getPlantsInBed, addPlantToBed, deletePlant, updatePlant, getPlantCareStatus } from '../lib/db.js';
+  import { getPlantsInBed, updatePlant, getPlantCareStatus } from '../lib/db.js';
   import { t } from '../lib/i18n.js';
   import AddPlantInline from './AddPlantInline.svelte';
 

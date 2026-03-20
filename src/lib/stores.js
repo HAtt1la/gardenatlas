@@ -2,9 +2,10 @@ import { writable, derived } from 'svelte/store';
 import { getAllPlants, getEventsForPlant, calculateNextSpray } from './db.js';
 
 // Current view state
-export const currentView = writable('map'); // 'map', 'detail', 'settings', 'multiEvent'
+export const currentView = writable('map'); // 'map', 'detail', 'settings', 'eventPanel'
 export const selectedPlantId = writable(null);
 export const searchQuery = writable('');
+export const activeEventTab = writable('events'); // 'events' | 'todos'
 
 // Plants data
 export const plants = writable([]);
@@ -77,7 +78,13 @@ export function navigateToSettings() {
 }
 
 export function navigateToMultiEvent() {
-  currentView.set('multiEvent');
+  activeEventTab.set('events');
+  currentView.set('eventPanel');
+}
+
+export function navigateToTodos() {
+  activeEventTab.set('todos');
+  currentView.set('eventPanel');
 }
 
 // Toast notifications

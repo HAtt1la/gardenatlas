@@ -1,6 +1,6 @@
 <script>
   import { selectedPlant, plantEvents, plantForecast, loadPlantDetails, loadPlants, showToast, navigateToMap } from '../lib/stores.js';
-  import { updatePlant, deleteEvent, deletePlant, EVENT_TYPES, PLANT_TYPES } from '../lib/db.js';
+  import { updatePlant, deleteEvent, deletePlant, convertToPlaceholder, EVENT_TYPES, PLANT_TYPES } from '../lib/db.js';
   import { t } from '../lib/i18n.js';
   import EventForm from './EventForm.svelte';
   import PhotoGallery from './PhotoGallery.svelte';
@@ -45,8 +45,22 @@
   $: plantType = PLANT_TYPES.find(t => t.id === $selectedPlant?.type);
   
   // Only allow delete for bed plants and herbs/flowers (type 'other')
-  // Trees and vines are permanent and shouldn't be deleted
   $: canDelete = $selectedPlant?.type === 'bed-plant' || $selectedPlant?.type === 'other';
+  // Allow convert-to-placeholder for permanent grid plants
+  $: canMarkRemoved = $selectedPlant?.type === 'fruit' || $selectedPlant?.type === 'grape' || $selectedPlant?.type === 'raspberry';
+
+  async function handleMarkAsRemoved() {
+    if (!confirm($t('markAsRemovedConfirm'))) return;
+    try {
+      await convertToPlaceholder($selectedPlant.id);
+      await loadPlants();
+      showToast($t('markedAsRemoved'), 'success');
+      navigateToMap();
+    } catch (err) {
+      console.error('Failed to convert plant:', err);
+      showToast('Failed to convert plant', 'error');
+    }
+  }
 
   async function saveChanges() {
     const updateData = {
@@ -317,14 +331,22 @@
       {/if}
     </div>
 
-    <!-- Danger Zone (only for bed plants and herbs/flowers) -->
-    {#if canDelete}
+    <!-- Danger Zone (for bed plants, herbs, and permanent grid plants) -->
+    {#if canDelete || canMarkRemoved}
       <div class="section danger-zone">
         <h3 class="section-title danger-title">Danger Zone</h3>
-        <p class="danger-description">Once you delete a plant, there is no going back. All events will also be deleted.</p>
-        <button class="btn btn-danger" on:click={handleDeletePlant}>
-          🗑️ Delete Plant
-        </button>
+        {#if canMarkRemoved}
+          <p class="danger-description">{$t('markAsRemovedConfirm')}</p>
+          <button class="btn btn-danger" on:click={handleMarkAsRemoved}>
+            🪓 {$t('markAsRemoved')}
+          </button>
+        {/if}
+        {#if canDelete}
+          <p class="danger-description">Once you delete a plant, there is no going back. All events will also be deleted.</p>
+          <button class="btn btn-danger" on:click={handleDeletePlant}>
+            🗑️ Delete Plant
+          </button>
+        {/if}
       </div>
     {/if}
   </div>
