@@ -1,6 +1,6 @@
 <script>
   import { showToast, loadPlants } from '../lib/stores.js';
-  import { exportData, importData, getSetting, setSetting, DEFAULT_INTERVALS } from '../lib/db.js';
+  import { exportData, importData, getSetting, setSetting, DEFAULT_INTERVALS, recordBackupDone } from '../lib/db.js';
   import { currentLanguage, setLanguage, t } from '../lib/i18n.js';
 
   let sprayIntervals = { ...DEFAULT_INTERVALS };
@@ -41,6 +41,7 @@
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       showToast($t('dataExported'), 'success');
+      await recordBackupDone();
     } catch (err) {
       console.error('Export failed:', err);
       showToast($t('exportFailed'), 'error');

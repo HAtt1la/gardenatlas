@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gardenatlas-v5';
+const CACHE_NAME = 'gardenatlas-v6';
 const ASSETS_TO_CACHE = [
   '/gardenatlas/',
   '/gardenatlas/index.html',
@@ -33,45 +33,49 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event
+// - Navigation (HTML): network-first so the browser always gets a fresh shell
+//   when online; falls back to cached index.html when offline.
+// - Everything else: cache-first for performance, but also revalidate in the
+//   background so the next load gets the updated asset.
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
-  
+
   // Skip browser extension requests
   if (!event.request.url.startsWith('http')) return;
 
-  event.respondWith(
-    caches.match(event.request)
-      .then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
+  const isNavigation = event.request.mode === 'navigate';
 
-        return fetch(event.request)
-          .then((response) => {
-            // Don't cache non-ok responses
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
+  if (isNavigation) {
+    // Network-first for HTML navigation: always try to get a fresh page.
+    // This ensures users see the latest version without manual cache clears.
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((r) => r || caches.match('/gardenatlas/index.html')))
+    );
+  } else {
+    // Stale-while-revalidate for assets: serve cache immediately, refresh in background.
+    event.respondWith(
+      caches.open(CACHE_NAME).then((cache) => {
+        return cache.match(event.request).then((cachedResponse) => {
+          const networkFetch = fetch(event.request).then((response) => {
+            if (response && response.status === 200 && response.type === 'basic') {
+              cache.put(event.request, response.clone());
             }
-
-            // Clone the response
-            const responseToCache = response.clone();
-
-            // Cache the fetched response for future
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-
             return response;
-          })
-          .catch(() => {
-            // Return offline page for navigation requests
-            if (event.request.mode === 'navigate') {
-              return caches.match('/index.html');
-            }
-          });
+          }).catch(() => null);
+
+          return cachedResponse || networkFetch;
+        });
       })
-  );
+    );
+  }
 });
