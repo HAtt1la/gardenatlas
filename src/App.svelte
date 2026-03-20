@@ -5,12 +5,13 @@
   import BedDetail from './components/BedDetail.svelte';
   import Settings from './components/Settings.svelte';
   import MultiEventForm from './components/MultiEventForm.svelte';
+  import TodoList from './components/TodoList.svelte';
   import SearchBar from './components/SearchBar.svelte';
   import Toast from './components/Toast.svelte';
   import BackupBanner from './components/BackupBanner.svelte';
-  import { currentView, loadPlants, navigateToMap, navigateToSettings, navigateToMultiEvent, toasts, selectedPlant } from './lib/stores.js';
+  import { currentView, loadPlants, navigateToMap, navigateToSettings, navigateToMultiEvent, navigateToTodos, toasts, selectedPlant, activeEventTab } from './lib/stores.js';
   import { initializeSampleData } from './lib/sampleData.js';
-  import { shouldShowBackupPrompt } from './lib/db.js';
+  import { migratePlantSectionIds, shouldShowBackupPrompt } from './lib/db.js';
   import { t } from './lib/i18n.js';
 
   let showBackupBanner = false;
@@ -18,6 +19,8 @@
   onMount(async () => {
     await initializeSampleData();
     await loadPlants();
+    const migrated = await migratePlantSectionIds();
+    if (migrated) await loadPlants();
     showBackupBanner = await shouldShowBackupPrompt();
   });
 
@@ -67,8 +70,24 @@
       {/if}
     {:else if $currentView === 'settings'}
       <Settings />
-    {:else if $currentView === 'multiEvent'}
-      <MultiEventForm />
+    {:else if $currentView === 'eventPanel'}
+      <div class="tab-panel">
+        <div class="tab-bar">
+          <button
+            class="tab-btn {$activeEventTab === 'events' ? 'active' : ''}"
+            on:click={() => activeEventTab.set('events')}
+          >📋 {$t('eventTab')}</button>
+          <button
+            class="tab-btn {$activeEventTab === 'todos' ? 'active' : ''}"
+            on:click={() => activeEventTab.set('todos')}
+          >✅ {$t('todoTab')}</button>
+        </div>
+        {#if $activeEventTab === 'events'}
+          <MultiEventForm />
+        {:else}
+          <TodoList />
+        {/if}
+      </div>
     {/if}
   </main>
 
@@ -132,6 +151,45 @@
   .main {
     flex: 1;
     overflow-y: auto;
+  }
+
+  .tab-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .tab-bar {
+    display: flex;
+    background: white;
+    border-bottom: 2px solid #e9ecef;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 0.875rem 0.5rem;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: #888;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    margin-bottom: -2px;
+  }
+
+  .tab-btn.active {
+    color: #2d5a27;
+    border-bottom-color: #2d5a27;
+  }
+
+  .tab-btn:hover:not(.active) {
+    color: #555;
+    background: #f8f9fa;
   }
 
   @media (max-width: 480px) {

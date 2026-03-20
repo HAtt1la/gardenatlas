@@ -1,19 +1,22 @@
 <script>
   import { showToast, loadPlants } from '../lib/stores.js';
-  import { exportData, importData, getSetting, setSetting, DEFAULT_INTERVALS, recordBackupDone } from '../lib/db.js';
+  import { exportData, importData, getSetting, setSetting, DEFAULT_INTERVALS, recordBackupDone, getSections, saveSections } from '../lib/db.js';
+  import { SECTION_REGISTRY, SECTION_BY_TYPE } from '../sections/index.js';
   import { currentLanguage, setLanguage, t } from '../lib/i18n.js';
 
   let sprayIntervals = { ...DEFAULT_INTERVALS };
+  let sections = [];
   let fileInput;
   let isExporting = false;
   let isImporting = false;
 
-  // Load saved intervals
+  // Load saved intervals and sections
   async function loadSettings() {
     const saved = await getSetting('sprayIntervals');
     if (saved) {
       sprayIntervals = { ...DEFAULT_INTERVALS, ...saved };
     }
+    sections = await getSections();
   }
   loadSettings();
 
@@ -21,7 +24,37 @@
     await setSetting('sprayIntervals', sprayIntervals);
     showToast($t('settingsSaved'), 'success');
   }
-  
+
+  async function moveSection(index, direction) {
+    const j = index + direction;
+    if (j < 0 || j >= sections.length) return;
+    const arr = [...sections];
+    [arr[index], arr[j]] = [arr[j], arr[index]];
+    sections = arr;
+    await saveSections(sections);
+    showToast($t('sectionsReordered'), 'success');
+  }
+
+  async function removeSection(instanceId) {
+    if (!confirm($t('removeSectionConfirm'))) return;
+    sections = sections.filter(s => s.instanceId !== instanceId);
+    await saveSections(sections);
+    showToast($t('sectionRemoved'), 'success');
+  }
+
+  async function addSection(type) {
+    const d = SECTION_BY_TYPE[type];
+    sections = [...sections, {
+      instanceId: `${type}-${Date.now()}`,
+      type,
+      name: d.defaultName,
+      ...(d.hasCols ? { cols: d.defaultCols } : {}),
+      ...(d.hasRows ? { rows: d.defaultRows } : {}),
+    }];
+    await saveSections(sections);
+    showToast($t('sectionAdded'), 'success');
+  }
+
   function handleLanguageChange(lang) {
     setLanguage(lang);
     showToast($t('settingsSaved'), 'success');
@@ -62,7 +95,7 @@
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      
+
       if (!data.plants || !data.events) {
         throw new Error('Invalid backup file format');
       }
@@ -70,7 +103,7 @@
       const confirmMsg = $t('confirmImport')
         .replace('{plants}', data.plants.length)
         .replace('{events}', data.events.length);
-      
+
       if (!confirm(confirmMsg)) {
         return;
       }
@@ -183,6 +216,38 @@
     <button class="btn btn-primary" on:click={saveIntervals}>
       {$t('saveSettings')}
     </button>
+  </section>
+
+  <!-- Garden Sections -->
+  <section class="section">
+    <h3 class="section-title">{$t('sectionManager')}</h3>
+    <p class="section-desc">{$t('sectionManagerDesc')}</p>
+
+    <div class="section-list">
+      {#each sections as sec, i (sec.instanceId)}
+        {@const d = SECTION_BY_TYPE[sec.type]}
+        <div class="section-row">
+          <span class="sec-icon">{d.icon}</span>
+          <span class="sec-name">{$t(sec.name)}</span>
+          <div class="sec-actions">
+            <button class="btn-icon-sm" disabled={i === 0} on:click={() => moveSection(i, -1)}>↑</button>
+            <button class="btn-icon-sm" disabled={i === sections.length - 1} on:click={() => moveSection(i, 1)}>↓</button>
+            <button class="btn-icon-sm danger" on:click={() => removeSection(sec.instanceId)}>✕</button>
+          </div>
+        </div>
+      {/each}
+    </div>
+
+    <p class="blank-slots-label">{$t('addSection')}</p>
+    <div class="blank-slot-btns">
+      {#each SECTION_REGISTRY as d}
+        <button class="btn btn-secondary btn-small"
+          on:click={() => addSection(d.type)}
+          title={$t(d.defaultName)}>
+          {d.icon}
+        </button>
+      {/each}
+    </div>
   </section>
 
   <!-- Data Management -->
@@ -465,5 +530,80 @@
     border-radius: 8px;
     color: #2d5a27;
     margin-top: 1rem !important;
+  }
+
+  .blank-slots-label {
+    font-size: 0.875rem;
+    color: #666;
+    margin: 0.75rem 0 0.5rem;
+  }
+
+  .blank-slot-btns {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .btn-small {
+    padding: 0.5rem 0.75rem;
+    font-size: 1.25rem;
+  }
+
+  .section-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .section-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+  }
+
+  .sec-icon {
+    font-size: 1.25rem;
+  }
+
+  .sec-name {
+    flex: 1;
+    font-size: 0.9375rem;
+    font-weight: 500;
+  }
+
+  .sec-actions {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .btn-icon-sm {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    background: white;
+    cursor: pointer;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-icon-sm:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .btn-icon-sm.danger {
+    color: #e74c3c;
+    border-color: #f5c6cb;
+  }
+
+  .btn-icon-sm.danger:hover:not(:disabled) {
+    background: #fff5f5;
   }
 </style>

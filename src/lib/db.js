@@ -48,6 +48,24 @@ db.version(6).stores({
   photos: '++id, plantId, isMain'
 });
 
+// Version 7: Add todos table for garden task list
+db.version(7).stores({
+  plants: '++id, name, type, row, x, y, emoji, color, bedId',
+  events: '++id, [plantId+eventType], plantId, eventType, date, modifiedAt',
+  settings: 'key',
+  photos: '++id, plantId, isMain',
+  todos: '++id, createdAt, doneAt'
+});
+
+// Version 8: Add sectionId field to plants for multi-instance section support
+db.version(8).stores({
+  plants: '++id, name, type, row, x, y, emoji, color, bedId, sectionId',
+  events: '++id, [plantId+eventType], plantId, eventType, date, modifiedAt',
+  settings: 'key',
+  photos: '++id, plantId, isMain',
+  todos: '++id, createdAt, doneAt'
+});
+
 
 // Event types - labels are i18n keys, will be translated at runtime
 export const EVENT_TYPES = [
@@ -403,6 +421,309 @@ export async function deletePhotosForPlant(plantId) {
   await db.photos.where('plantId').equals(plantId).delete();
 }
 
+// Convert a real plant to a placeholder in-place (tree cut down etc.)
+export async function convertToPlaceholder(id) {
+  const plant = await db.plants.get(id);
+  if (!plant || plant.type === 'placeholder') return;
+  // Delete associated events and photos - placeholder has no history
+  await db.events.where('plantId').equals(id).delete();
+  await db.photos.where('plantId').equals(id).delete();
+  return await db.plants.update(id, {
+    placeholderFor: plant.type,
+    type: 'placeholder',
+    name: '',
+    emoji: '',
+    color: null,
+    notes: null
+    // sectionId is preserved as-is
+  });
+}
+
+// ── Layout column/row adjustment helpers ──────────────────────────────────
+
+// Get all plants of a section instance (real + placeholders) in DB order
+async function getSectionPlants(sectionId) {
+  const all = await db.plants.toArray();
+  return all
+    .filter(p => p.sectionId === sectionId)
+    .sort((a, b) => (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id));
+}
+
+// Validate whether columns can be decreased by N.
+// Rule: every row must have at least N placeholders.
+// Returns { ok: true } or { ok: false, message, blockingPlants }
+export async function validateColDecrease(sectionId, currentCols, newCols) {
+  const decrease = currentCols - newCols;
+  if (decrease <= 0) return { ok: true };
+  const plants = await getSectionPlants(sectionId);
+  const rowCount = Math.ceil(plants.length / currentCols);
+  const blockingPlants = [];
+  for (let row = 0; row < rowCount; row++) {
+    const rowPlants = plants.slice(row * currentCols, (row + 1) * currentCols);
+    const placeholderCount = rowPlants.filter(p => p.type === 'placeholder').length;
+    if (placeholderCount < decrease) {
+      const real = rowPlants.filter(p => p.type !== 'placeholder');
+      // Need (decrease - placeholderCount) more placeholders in this row
+      blockingPlants.push(...real.slice(0, decrease - placeholderCount));
+    }
+  }
+  if (blockingPlants.length > 0) {
+    return { ok: false, blockingPlants };
+  }
+  return { ok: true };
+}
+
+// Apply a column decrease: remove one placeholder per row, N times.
+// Picks the last placeholder in each row (highest index within row).
+export async function applyColDecrease(sectionId, currentCols, newCols) {
+  const decrease = currentCols - newCols;
+  if (decrease <= 0) return;
+  let plants = await getSectionPlants(sectionId);
+  for (let pass = 0; pass < decrease; pass++) {
+    // Re-fetch after each pass so indices stay correct
+    plants = await getSectionPlants(sectionId);
+    const cols = currentCols - pass;
+    const rowCount = Math.ceil(plants.length / cols);
+    for (let row = rowCount - 1; row >= 0; row--) {
+      const rowPlants = plants.slice(row * cols, (row + 1) * cols);
+      // Find last placeholder in this row
+      const lastPlaceholder = [...rowPlants].reverse().find(p => p.type === 'placeholder');
+      if (lastPlaceholder) {
+        await db.plants.delete(lastPlaceholder.id);
+      }
+    }
+  }
+}
+
+// Apply a column increase: add one placeholder per existing row for each new column.
+export async function applyColIncrease(sectionId, plantType, currentCols, newCols) {
+  const increase = newCols - currentCols;
+  if (increase <= 0) return;
+  const plants = await getSectionPlants(sectionId);
+  if (plants.length === 0) return;
+  const rowCount = Math.ceil(plants.length / currentCols);
+  for (let pass = 0; pass < increase; pass++) {
+    for (let row = 0; row < rowCount; row++) {
+      await db.plants.add({
+        name: '',
+        type: 'placeholder',
+        placeholderFor: plantType,
+        sectionId,
+        emoji: '',
+        color: null,
+        row: null, x: null, y: null, bedId: null
+      });
+    }
+  }
+}
+
+// Validate row decrease (same logic, operates on full rows)
+export async function validateRowDecrease(sectionId, currentCols, currentRows, newRows) {
+  const decrease = currentRows - newRows;
+  if (decrease <= 0) return { ok: true };
+  const plants = await getSectionPlants(sectionId);
+  const blockingPlants = [];
+  // Check the last `decrease` rows
+  for (let row = currentRows - decrease; row < currentRows; row++) {
+    const rowPlants = plants.slice(row * currentCols, (row + 1) * currentCols);
+    const real = rowPlants.filter(p => p.type !== 'placeholder');
+    blockingPlants.push(...real);
+  }
+  if (blockingPlants.length > 0) {
+    return { ok: false, blockingPlants };
+  }
+  return { ok: true };
+}
+
+// Apply a row decrease: delete all plants (placeholders only, validated) in removed rows
+export async function applyRowDecrease(sectionId, currentCols, currentRows, newRows) {
+  const decrease = currentRows - newRows;
+  if (decrease <= 0) return;
+  const plants = await getSectionPlants(sectionId);
+  for (let row = currentRows - decrease; row < currentRows; row++) {
+    const rowPlants = plants.slice(row * currentCols, (row + 1) * currentCols);
+    for (const p of rowPlants) {
+      await db.plants.delete(p.id);
+    }
+  }
+}
+
+// Apply a row increase: add a full row of placeholders
+export async function applyRowIncrease(sectionId, plantType, currentCols, newRows, currentRows) {
+  const increase = newRows - currentRows;
+  if (increase <= 0) return;
+  for (let r = 0; r < increase; r++) {
+    for (let c = 0; c < currentCols; c++) {
+      await db.plants.add({
+        name: '',
+        type: 'placeholder',
+        placeholderFor: plantType,
+        sectionId,
+        emoji: '',
+        color: null,
+        row: null, x: null, y: null, bedId: null
+      });
+    }
+  }
+}
+
+// ── Garden Sections ─────────────────────────────────────────────────────────
+
+export const DEFAULT_SECTIONS = [
+  { instanceId: 'fruit-1',     type: 'fruit',     name: 'fruitTrees',   cols: 6 },
+  { instanceId: 'grape-1',     type: 'grape',     name: 'grapevines',   cols: 5, rows: 4 },
+  { instanceId: 'raspberry-1', type: 'raspberry', name: 'raspberries',  cols: 4 },
+  { instanceId: 'bed-1',       type: 'bed',       name: 'raisedBeds' },
+  { instanceId: 'other-1',     type: 'other',     name: 'herbsFlowers', cols: 5 },
+];
+
+export async function getSections() {
+  const saved = await getSetting('sections', null);
+  if (saved && Array.isArray(saved)) {
+    // Fix raspberry cols: 1 saved before the layout change to full-width sections
+    let patched = false;
+    const result = saved.map(s => {
+      if (s.type === 'raspberry' && s.cols === 1) { patched = true; return { ...s, cols: 4 }; }
+      return s;
+    });
+    if (patched) await setSetting('sections', result);
+    return result;
+  }
+  // Migrate from old named-key layout format
+  const oldLayout = await getSetting('layout', null);
+  if (oldLayout && !Array.isArray(oldLayout)) {
+    const migrated = [
+      { instanceId: 'fruit-1',     type: 'fruit',     name: 'fruitTrees',   cols: oldLayout.fruitTrees?.cols ?? 6 },
+      { instanceId: 'grape-1',     type: 'grape',     name: 'grapevines',   cols: oldLayout.grapevines?.cols ?? 5, rows: oldLayout.grapevines?.rows ?? 4 },
+      { instanceId: 'raspberry-1', type: 'raspberry', name: 'raspberries',  cols: 4 },
+      { instanceId: 'bed-1',       type: 'bed',       name: 'raisedBeds' },
+      { instanceId: 'other-1',     type: 'other',     name: 'herbsFlowers', cols: oldLayout.herbsFlowers?.cols ?? 5 },
+    ];
+    await setSetting('sections', migrated);
+    return migrated;
+  }
+  return JSON.parse(JSON.stringify(DEFAULT_SECTIONS));
+}
+
+// Assign sectionId to any plants that are missing it.
+// Must be called after getSections() so section data exists.
+// Returns true if any plants were updated (caller should reload plants store).
+export async function migratePlantSectionIds() {
+  const allPlants = await db.plants.toArray();
+  const needsMigration = allPlants.some(p => p.sectionId == null && p.type !== 'bed');
+  if (!needsMigration) return false;
+  const sections = await getSections();
+  const typeToSectionId = {};
+  for (const sec of sections) {
+    if (!(sec.type in typeToSectionId)) typeToSectionId[sec.type] = sec.instanceId;
+  }
+  for (const p of allPlants) {
+    if (p.sectionId != null) continue;
+    const plantType = p.type === 'placeholder' ? p.placeholderFor : p.type;
+    const sid = plantType ? typeToSectionId[plantType] : null;
+    if (sid) await db.plants.update(p.id, { sectionId: sid });
+  }
+  return true;
+}
+
+export async function saveSections(sections) {
+  await setSetting('sections', sections);
+}
+
+// Add a placeholder plant for a given section instance
+export async function addPlaceholderPlant(sectionId, plantType) {
+  return await db.plants.add({
+    name: '',
+    type: 'placeholder',
+    placeholderFor: plantType,
+    sectionId,
+    emoji: '',
+    color: null,
+    row: null,
+    x: null,
+    y: null,
+    bedId: null
+  });
+}
+
+// Add a real named plant directly to a section (no placeholder step)
+export async function addSectionPlant(sectionId, plantType, name, emoji, color) {
+  return await db.plants.add({
+    name,
+    type: plantType,
+    sectionId,
+    emoji,
+    color,
+    row: null,
+    x: null,
+    y: null,
+    bedId: null
+  });
+}
+
+// Convert a placeholder to a real plant in-place.
+// position: 1-based target column within its row (optional).
+// If given, other plants in the same row at >= position are shifted right via sortOrder.
+export async function convertPlaceholder(id, name, emoji, color, position) {
+  const plant = await db.plants.get(id);
+  if (!plant || plant.type !== 'placeholder') return;
+
+  if (position != null) {
+    const sectionId = plant.sectionId;
+    const all = await db.plants.toArray();
+    const section = all
+      .filter(p => p.sectionId === sectionId)
+      .sort((a, b) => (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id));
+
+    // Find index of this placeholder in the section
+    const idx = section.findIndex(p => p.id === id);
+
+    // Determine col count from saved sections
+    const allSections = await getSections();
+    const sec = allSections.find(s => s.instanceId === sectionId);
+    const cols = sec?.cols ?? 1;
+
+    const row = Math.floor(idx / cols);
+    const rowStart = row * cols;
+    const rowPlants = section.slice(rowStart, rowStart + cols);
+
+    // Target 0-based col index (clamp to valid range)
+    const targetCol = Math.max(0, Math.min(cols - 1, (position - 1)));
+    const currentCol = idx - rowStart;
+
+    if (targetCol !== currentCol) {
+      // Assign sortOrder to all section plants if not yet set
+      let order = 0;
+      for (const p of section) {
+        if (p.sortOrder == null) await db.plants.update(p.id, { sortOrder: order });
+        order++;
+      }
+      // Re-fetch after update
+      const refreshed = (await db.plants.toArray())
+        .filter(p => p.sectionId === sectionId)
+        .sort((a, b) => (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id));
+      const refreshedRow = refreshed.slice(rowStart, rowStart + cols);
+
+      // Swap sortOrders between placeholder and the plant at targetCol
+      const targetPlant = refreshedRow[targetCol];
+      const thisPlant   = refreshedRow[currentCol];
+      if (targetPlant && thisPlant) {
+        const tmpOrder = thisPlant.sortOrder ?? thisPlant.id;
+        await db.plants.update(thisPlant.id,   { sortOrder: targetPlant.sortOrder ?? targetPlant.id });
+        await db.plants.update(targetPlant.id, { sortOrder: tmpOrder });
+      }
+    }
+  }
+
+  return await db.plants.update(id, {
+    type: plant.placeholderFor,
+    name,
+    emoji,
+    color: color || null,
+    placeholderFor: null
+  });
+}
+
 // Auto-backup prompt logic
 // Returns true if the backup banner should be shown.
 // Prompt if: never backed up, or last backup/snooze was >7 days ago,
@@ -432,4 +753,108 @@ export async function recordBackupDone() {
 
 export async function snoozeBackupPrompt() {
   await setSetting('lastBackupSnooze', new Date().toISOString());
+}
+
+// ── Todos ──────────────────────────────────────────────────────────────────
+
+export async function getAllTodos() {
+  return await db.todos.orderBy('createdAt').toArray();
+}
+
+export async function addTodo(text) {
+  return await db.todos.add({
+    text: text.trim(),
+    createdAt: new Date().toISOString(),
+    doneAt: null,
+    doneDate: null,
+    blockedBy: []   // array of todo IDs
+  });
+}
+
+export async function updateTodo(id, changes) {
+  return await db.todos.update(id, changes);
+}
+
+export async function deleteTodo(id) {
+  // Also remove this id from any other todo's blockedBy list
+  const all = await getAllTodos();
+  for (const todo of all) {
+    if (todo.blockedBy && todo.blockedBy.includes(id)) {
+      await db.todos.update(todo.id, {
+        blockedBy: todo.blockedBy.filter(bid => bid !== id)
+      });
+    }
+  }
+  return await db.todos.delete(id);
+}
+
+export async function completeTodo(id, doneDate) {
+  const now = new Date().toISOString();
+  return await db.todos.update(id, {
+    doneAt: now,
+    doneDate: doneDate || now.split('T')[0]
+  });
+}
+
+export async function reopenTodo(id) {
+  return await db.todos.update(id, { doneAt: null, doneDate: null });
+}
+
+// Compute priority scores for all todos.
+// Score = number of open tasks (transitively) that are blocked by this task.
+// Returns a Map<todoId, score>.
+export function computePriorityScores(todos) {
+  const open = todos.filter(t => !t.doneAt);
+  const openIds = new Set(open.map(t => t.id));
+
+  // Build reverse map: id → set of ids it directly blocks
+  const blocks = new Map();
+  for (const t of open) {
+    blocks.set(t.id, new Set());
+  }
+  for (const t of open) {
+    for (const bid of (t.blockedBy || [])) {
+      if (blocks.has(bid)) {
+        blocks.get(bid).add(t.id);
+      }
+    }
+  }
+
+  // For each task, count all transitively blocked open tasks (BFS)
+  const scores = new Map();
+  for (const t of open) {
+    const visited = new Set();
+    const queue = [...(blocks.get(t.id) || [])];
+    while (queue.length) {
+      const nxt = queue.shift();
+      if (visited.has(nxt)) continue;
+      visited.add(nxt);
+      for (const child of (blocks.get(nxt) || [])) {
+        queue.push(child);
+      }
+    }
+    scores.set(t.id, visited.size);
+  }
+  return scores;
+}
+
+// Check if adding prerequisite `prereqId` to `todoId` would create a cycle.
+// Returns true if it would be a cycle (unsafe).
+export function wouldCreateCycle(todos, todoId, prereqId) {
+  if (todoId === prereqId) return true;
+  // Walk prereqId's own blockedBy chain upward - if we reach todoId, it's a cycle
+  const map = new Map(todos.map(t => [t.id, t]));
+  const visited = new Set();
+  const queue = [prereqId];
+  while (queue.length) {
+    const cur = queue.shift();
+    if (cur === todoId) return true;
+    if (visited.has(cur)) continue;
+    visited.add(cur);
+    const node = map.get(cur);
+    if (node) {
+      for (const bid of (node.blockedBy || [])) queue.push(bid);
+    }
+  }
+  return false;
 }
