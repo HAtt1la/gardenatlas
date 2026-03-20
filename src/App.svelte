@@ -9,7 +9,7 @@
   import SearchBar from './components/SearchBar.svelte';
   import Toast from './components/Toast.svelte';
   import BackupBanner from './components/BackupBanner.svelte';
-  import { currentView, loadPlants, navigateToMap, navigateToSettings, navigateToMultiEvent, navigateToTodos, toasts, selectedPlant, activeEventTab } from './lib/stores.js';
+  import { currentView, loadPlants, navigateToMap, navigateToSettings, navigateToMultiEvent, toasts, selectedPlant, activeEventTab } from './lib/stores.js';
   import { initializeSampleData } from './lib/sampleData.js';
   import { migratePlantSectionIds, shouldShowBackupPrompt } from './lib/db.js';
   import { t } from './lib/i18n.js';

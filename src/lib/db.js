@@ -478,7 +478,7 @@ export async function validateColDecrease(sectionId, currentCols, newCols) {
 export async function applyColDecrease(sectionId, currentCols, newCols) {
   const decrease = currentCols - newCols;
   if (decrease <= 0) return;
-  let plants = await getSectionPlants(sectionId);
+  let plants;
   for (let pass = 0; pass < decrease; pass++) {
     // Re-fetch after each pass so indices stay correct
     plants = await getSectionPlants(sectionId);
@@ -685,7 +685,6 @@ export async function convertPlaceholder(id, name, emoji, color, position) {
 
     const row = Math.floor(idx / cols);
     const rowStart = row * cols;
-    const rowPlants = section.slice(rowStart, rowStart + cols);
 
     // Target 0-based col index (clamp to valid range)
     const targetCol = Math.max(0, Math.min(cols - 1, (position - 1)));
@@ -805,7 +804,6 @@ export async function reopenTodo(id) {
 // Returns a Map<todoId, score>.
 export function computePriorityScores(todos) {
   const open = todos.filter(t => !t.doneAt);
-  const openIds = new Set(open.map(t => t.id));
 
   // Build reverse map: id → set of ids it directly blocks
   const blocks = new Map();
