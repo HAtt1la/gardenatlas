@@ -128,6 +128,8 @@ src/sections/
 | `minRows/maxRows` | number\|null | stepper bounds |
 | `isBedSection` | bool | `true` → special raised-bed rendering |
 | `wireColor` | hex\|null | horizontal wire line color (grape only) |
+| `defaultSprayDays` | number\|null | default spray interval in days; `null` disables spray tracking; drives `DEFAULT_INTERVALS` in `db.js` |
+| `labels` | `{ en, hu }` | `{ section, type }` strings per language; injected into i18n at startup |
 | `emojis` | string[] | curated emoji palette for this section type |
 | `colors` | hex[] | curated color palette for this section type |
 

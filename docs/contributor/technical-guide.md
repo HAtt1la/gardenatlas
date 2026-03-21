@@ -96,7 +96,7 @@ Translations are plain objects at the top of `i18n.js` - one for `en`, one for `
 
 ### `src/sections/index.js`
 
-The section registry. Imports all descriptors and renderers; exports `SECTION_REGISTRY` (array) and `SECTION_BY_TYPE` (object keyed by `type`). To register a new section type, add two import lines and one entry to `SECTION_REGISTRY`. See [Adding Sections](./adding-sections.md).
+The section registry. Imports all descriptors and renderers; exports `SECTION_REGISTRY` (array) and `SECTION_BY_TYPE` (object keyed by `type`). After building the registry, it calls `injectTranslations()` to register each descriptor's `labels` into the i18n system and derives `DEFAULT_INTERVALS` in `db.js` from `defaultSprayDays`. To register a new section type, add two import lines and one entry to `SECTION_REGISTRY`. See [Adding Sections](./adding-sections.md).
 
 ---
 

@@ -10,10 +10,8 @@ Adding a section type requires:
 
 1. A folder `src/sections/<type>/` with two files
 2. One entry in `src/sections/index.js`
-3. An i18n key for the default section name
-4. Sample data entries (optional but recommended)
 
-That's it. No changes to `GardenMap.svelte`, `SectionSheet.svelte`, or `Settings.svelte`.
+That's it. No other files need to be touched — translations, spray intervals, and the Settings UI all update automatically from the descriptor.
 
 ---
 
@@ -23,17 +21,22 @@ That's it. No changes to `GardenMap.svelte`, `SectionSheet.svelte`, or `Settings
 // src/sections/herb/descriptor.js
 export default {
   type: 'herb',
-  defaultName: 'herbGarden',   // i18n key
+  defaultName: 'herbGarden',   // key used internally to identify section instances
   icon: '🌿',
   cardW: 56, cardH: 58, rowGap: 10,
   hasCols: true,   // show columns stepper in section sheet
   hasRows: false,  // no fixed row count - grows as plants are added
   defaultCols: 4,
   defaultRows: null,
-  minCols: 1, maxCols: 8,
+  minCols: 1, maxCols: 6,
   minRows: 1, maxRows: 8,
   isBedSection: false,
   wireColor: null,
+  defaultSprayDays: null,   // set to a number (e.g. 14) to enable spray tracking
+  labels: {
+    en: { section: 'Herb Garden', type: 'Herb' },
+    hu: { section: 'Gyógynövény kert', type: 'Gyógynövény' },
+  },
   emojis: ['🌿', '🌱', '🪴', '🍃', '☘️', '🌾', '🧄', '🧅'],
   colors: ['#27ae60', '#6aaa2a', '#16a085', '#f0c040', '#8b5e3c', '#e07a8e'],
 };
@@ -44,18 +47,20 @@ export default {
 | Field | Notes |
 |-------|-------|
 | `type` | Unique string. Also becomes `plants.type` for plants in this section. No spaces or special chars. |
-| `defaultName` | i18n key. Must be added to `src/lib/i18n.js` (step 3). |
+| `defaultName` | Internal key used as the default section instance name. Must be unique across all section types. |
 | `icon` | Emoji shown in the section header label. |
-| `cardW` / `cardH` | Card dimensions in SVG units. Wider sections can use smaller cards. |
+| `cardW` / `cardH` | Card dimensions in SVG units. Max safe columns = `floor(352 / cardW)`. |
 | `rowGap` | Vertical gap between card rows (SVG units). |
 | `hasCols` | `true` → section sheet shows a columns stepper. |
 | `hasRows` | `true` → section sheet shows a rows stepper (for trellis-style fixed grids like grapes). |
 | `defaultCols` | Initial column count when the section is first created. |
 | `defaultRows` | Initial row count. Use `null` for unlimited (plant count drives height). |
-| `minCols/maxCols` | Stepper min/max bounds. |
+| `minCols/maxCols` | Stepper min/max bounds. Set `maxCols` to `floor(352 / cardW)` to prevent card overlap. |
 | `minRows/maxRows` | Stepper min/max bounds. |
 | `isBedSection` | `true` only for raised-bed sections - uses a special renderer. |
 | `wireColor` | Hex color for a horizontal wire line across each row (grape trellis style). `null` = no wire. |
+| `defaultSprayDays` | Default spray interval in days. `null` disables spray tracking for this type. When set, the section automatically appears in Settings → Spray Intervals. |
+| `labels` | Display names per language. **Both `en` and `hu` are required.** `section` = section header / settings label. `type` = plant type label in plant detail view. |
 | `emojis` | Curated emoji picker for this section type. Shown in the add-plant form. |
 | `colors` | Curated color picker. |
 
@@ -63,85 +68,25 @@ export default {
 
 ## Step 2 - Create `Renderer.svelte`
 
-The renderer emits SVG elements directly - no wrapper element. For most section types, copy the fruit renderer and adjust the threshold in the `textLength` expression.
+The renderer emits SVG elements directly - no wrapper element. For most section types, the fruit renderer layout works as-is — alias it in `index.js` instead of creating a new file (see Step 3).
 
-```svelte
-<!-- src/sections/herb/Renderer.svelte -->
-<script>
-  export let section;
-  export let descriptor;
-  export let plants;
-  export let secY;
-  export let gardenWidth;
-  export let onPlantClick;
-  export let onPlaceholderClick;
-  export let getStatusColor;
-  export let colorToTint;
-  export let tLabel;
+Only create a new `Renderer.svelte` if you need a distinct visual layout (e.g. wire lines, fixed-slot grid).
 
-  $: cols = section.cols ?? 1;
-  $: step = (gardenWidth - 8) / cols;
-  $: x0 = 4 + step / 2;
-</script>
-
-{#each plants as plant, i}
-  {@const col = i % cols}
-  {@const row = Math.floor(i / cols)}
-  {@const cx = x0 + col * step}
-  {@const ty = secY + 28 + row * (descriptor.cardH + descriptor.rowGap)}
-  {#if plant.type === 'placeholder'}
-    <g class="plant-marker placeholder-marker"
-      on:click={(e) => onPlaceholderClick(plant, e)}
-      on:keydown={(e) => e.key === 'Enter' && onPlaceholderClick(plant, e)}
-      role="button" tabindex="0">
-      <rect x={cx - descriptor.cardW/2} y={ty} width={descriptor.cardW} height={descriptor.cardH}
-        rx="7" fill="rgba(200,200,200,0.15)" stroke="#bbb" stroke-width="1" stroke-dasharray="4,3" />
-      <text x={cx} y={ty + descriptor.cardH * 0.55} class="placeholder-label">{tLabel('placeholderLabel')}</text>
-    </g>
-  {:else}
-    {@const sc = getStatusColor(plant.id)}
-    {@const bg = colorToTint(plant.color)}
-    <g class="plant-marker"
-      on:click={(e) => onPlantClick(plant, e)}
-      on:keydown={(e) => e.key === 'Enter' && onPlantClick(plant, e)}
-      role="button" tabindex="0">
-      <rect x={cx - descriptor.cardW/2} y={ty} width={descriptor.cardW} height={descriptor.cardH}
-        rx="7" fill={bg} stroke="#ccc" stroke-width="0.5" class="card-bg" />
-      <rect x={cx + descriptor.cardW/2 - 12} y={ty + 3} width="10" height="10"
-        rx="3" fill={sc} class="status-dot" />
-      <text x={cx} y={ty + descriptor.cardH * 0.45} class="card-emoji">{plant.emoji || descriptor.icon}</text>
-      <text x={cx} y={ty + descriptor.cardH - 8} class="card-label"
-        textLength={plant.name.length > 6 ? descriptor.cardW - 6 : null}
-        lengthAdjust="spacingAndGlyphs">{plant.name}</text>
-    </g>
-  {/if}
-{/each}
-
-<style>
-  .plant-marker { cursor: pointer; }
-  .plant-marker:hover .card-bg { filter: brightness(0.93); }
-  .plant-marker:focus { outline: none; }
-  .plant-marker:focus .card-bg { stroke: #2d5a27; stroke-width: 2; }
-  .placeholder-marker { cursor: pointer; opacity: 0.7; }
-  .placeholder-marker:hover { opacity: 1; }
-  .placeholder-label { font-size: 20px; text-anchor: middle; dominant-baseline: middle; fill: #aaa; font-weight: 700; pointer-events: none; }
-  .card-emoji { font-size: 26px; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
-  .card-label { font-size: 10px; text-anchor: middle; dominant-baseline: auto; fill: #111; font-weight: 700; pointer-events: none; }
-</style>
-```
-
-### Reusing an existing renderer
-
-If your section uses a standard card grid (no wire lines, no special layout), you can alias `FruitRenderer` instead of creating a new Svelte file:
+If you do need a custom renderer, copy `src/sections/fruit/Renderer.svelte` and adjust as needed. All renderers receive the same prop set from `GardenMap`:
 
 ```js
-// in src/sections/index.js
-const HerbRenderer = FruitRenderer;
+export let section;            // { instanceId, type, name, cols?, rows? }
+export let descriptor;         // descriptor object from descriptor.js
+export let plants;             // filtered, sliced plant array for this section
+export let secY;               // Y offset in SVG
+export let gardenWidth;        // 360 (constant)
+export let plantThumbs;        // { [plantId]: objectURL } - photo thumbnails
+export let onPlantClick;       // (plant, event) => void
+export let onPlaceholderClick; // (plant, event) => void
+export let getStatusColor;     // (plantId) => '#hex'
+export let colorToTint;        // (hex) => 'rgba(...)'
+export let tLabel;             // $t function
 ```
-
-Only create a new `Renderer.svelte` if you need a distinct visual layout.
-
-### Custom layouts
 
 For a wire-trellis layout (like grape), add a horizontal line before each row:
 
@@ -152,62 +97,41 @@ For a wire-trellis layout (like grape), add a horizontal line before each row:
 {/if}
 ```
 
-For a fixed-slot grid (like the raised-bed renderer), implement the layout logic directly and declare only the props you use.
-
 ---
 
-## Step 3 - Register in `index.js`
+## Step 3 - Register in `index.js` ← only required change outside the section folder
 
 ```js
 // src/sections/index.js
 import fruitDesc     from './fruit/descriptor.js';
-import grapeDesc     from './grape/descriptor.js';
-import raspberryDesc from './raspberry/descriptor.js';
-import bedDesc       from './bed/descriptor.js';
-import otherDesc     from './other/descriptor.js';
+// ... existing imports ...
 import herbDesc      from './herb/descriptor.js';        // ← add
 
 import FruitRenderer from './fruit/Renderer.svelte';
-import GrapeRenderer from './grape/Renderer.svelte';
-import BedRenderer   from './bed/Renderer.svelte';
-import HerbRenderer  from './herb/Renderer.svelte';      // ← add (or alias FruitRenderer)
+// ... existing imports ...
+import HerbRenderer  from './herb/Renderer.svelte';      // ← add (or alias below)
 
 const RaspberryRenderer = FruitRenderer;
 const OtherRenderer     = FruitRenderer;
+const ShrubRenderer     = FruitRenderer;
+const HerbRenderer      = FruitRenderer;                 // ← alias if no custom renderer needed
 
 export const SECTION_REGISTRY = [
   { ...fruitDesc,     Renderer: FruitRenderer },
-  { ...grapeDesc,     Renderer: GrapeRenderer },
-  { ...raspberryDesc, Renderer: RaspberryRenderer },
-  { ...bedDesc,       Renderer: BedRenderer },
-  { ...otherDesc,     Renderer: OtherRenderer },
+  // ... existing entries ...
   { ...herbDesc,      Renderer: HerbRenderer },           // ← add
 ];
-
-export const SECTION_BY_TYPE = Object.fromEntries(
-  SECTION_REGISTRY.map(d => [d.type, d])
-);
 ```
 
-The order in `SECTION_REGISTRY` also controls the order in the Settings "Add Section" list.
+**That's all.** After this one edit:
+- The section appears in Settings → Add Section list
+- Section names (`herbGarden`) are registered in EN and HU translations automatically
+- Plant type labels (`herb`) are registered automatically
+- If `defaultSprayDays` is set, the section appears in Settings → Spray Intervals automatically
 
 ---
 
-## Step 4 - Add the i18n key
-
-Open `src/lib/i18n.js` and add the `defaultName` key to both language objects:
-
-```js
-// English
-herbGarden: 'Herb Garden',
-
-// Hungarian
-herbGarden: 'Gyógynövény kert',
-```
-
----
-
-## Step 5 - Add sample data (optional)
+## Step 4 - Add sample data (optional)
 
 Open `src/lib/sampleData.js`. Sample plants need a `sectionId` that matches the `instanceId` that `DEFAULT_SECTIONS` will assign on first launch.
 
@@ -221,7 +145,7 @@ Check `DEFAULT_SECTIONS` in `db.js` to see the instanceId pattern - it's `'<type
 
 ---
 
-## Step 6 - Add to `DEFAULT_SECTIONS` in `db.js`
+## Step 5 - Add to `DEFAULT_SECTIONS` in `db.js` (optional)
 
 If you want the section to appear by default on first install:
 
@@ -232,7 +156,7 @@ If you want the section to appear by default on first install:
 
 ---
 
-## Step 7 - Verify
+## Step 6 - Verify
 
 ```bash
 npm run build   # must produce zero errors and zero warnings
@@ -244,12 +168,13 @@ npm run dev     # open in browser, check Settings → Add Section shows the new 
 
 ## Checklist
 
-- [ ] `src/sections/<type>/descriptor.js` created
-- [ ] `src/sections/<type>/Renderer.svelte` created (or renderer aliased)
-- [ ] Entry added to `SECTION_REGISTRY` in `index.js`
-- [ ] i18n key added to both language objects in `i18n.js`
+- [ ] `src/sections/<type>/descriptor.js` created with `labels` (both `en` and `hu`) and `defaultSprayDays`
+- [ ] `src/sections/<type>/Renderer.svelte` created **or** renderer aliased in `index.js`
+- [ ] Entry added to `SECTION_REGISTRY` in `src/sections/index.js` ← **only required change outside the section folder**
 - [ ] `npm run build` - zero warnings
 - [ ] Section appears in Settings add list
+- [ ] Section name displays correctly in EN and HU
 - [ ] Plants render correctly on the map
 - [ ] Section sheet opens on name tap; columns/rows stepper works if enabled
 - [ ] Add Plant form uses the section's emoji and color palette
+- [ ] If `defaultSprayDays` is non-null: section appears in Settings → Spray Intervals

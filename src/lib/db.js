@@ -1,4 +1,5 @@
 import Dexie from 'dexie';
+import { SECTION_REGISTRY } from '../sections/index.js';
 
 // Create database
 export const db = new Dexie('GardenAtlasDB');
@@ -87,14 +88,10 @@ export const PLANT_TYPES = [
   { id: 'other', label: 'other', icon: '🌿' }
 ];
 
-// Default spray intervals (in days)
-export const DEFAULT_INTERVALS = {
-  grape: { spray: 14 },
-  fruit: { spray: 21 },
-  raspberry: { spray: 14 },
-  bed: { spray: null },
-  other: { spray: null }
-};
+// Default spray intervals — derived from section descriptors
+export const DEFAULT_INTERVALS = Object.fromEntries(
+  SECTION_REGISTRY.map(d => [d.type, { spray: d.defaultSprayDays ?? null }])
+);
 
 // CRUD Operations for Plants
 export async function getAllPlants() {
@@ -370,6 +367,16 @@ export async function getMainPhotoForPlant(plantId) {
   return photos[0] || null;
 }
 
+// Get main photo for every plant in a list, returns { [plantId]: photo }
+export async function getMainPhotosForPlants(plantIds) {
+  const result = {};
+  for (const id of plantIds) {
+    const photo = await getMainPhotoForPlant(id);
+    if (photo) result[id] = photo;
+  }
+  return result;
+}
+
 // Add photo to plant
 export async function addPhotoToPlant(plantId, file) {
   const existingPhotos = await getPhotosForPlant(plantId);
@@ -574,7 +581,7 @@ export const DEFAULT_SECTIONS = [
   { instanceId: 'grape-1',     type: 'grape',     name: 'grapevines',   cols: 5, rows: 4 },
   { instanceId: 'raspberry-1', type: 'raspberry', name: 'raspberries',  cols: 4 },
   { instanceId: 'bed-1',       type: 'bed',       name: 'raisedBeds' },
-  { instanceId: 'other-1',     type: 'other',     name: 'herbsFlowers', cols: 5 },
+  { instanceId: 'other-1',     type: 'other',     name: 'otherPlants',  cols: 5 },
 ];
 
 export async function getSections() {

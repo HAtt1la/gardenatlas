@@ -18,11 +18,6 @@ const translations = {
     settings: 'Settings',
     
     // Garden Map
-    fruitTrees: 'Fruit Trees',
-    raisedBeds: 'Raised Beds',
-    grapevines: 'Grapevines',
-    raspberries: 'Raspberries',
-    herbsFlowers: 'Herbs & Flowers',
     addNewPlant: 'Add New Plant',
     
     // Status
@@ -65,13 +60,9 @@ const translations = {
     exampleBedPlants: 'e.g., Tomato, Basil, Pepper...',
     exampleOtherPlants: 'e.g., Rose, Lavender...',
     
-    // Plant types
-    fruit: 'Fruit Tree',
-    grape: 'Grapevine',
-    raspberry: 'Raspberry',
-    bed: 'Raised Bed',
-    other: 'Other Plant',
-    
+    // Plant types — injected from section descriptors at runtime
+    // (fruit, grape, raspberry, bed, other, shrub, etc.)
+
     // Add Plant Form
     plantName: 'Plant Name',
     enterPlantName: 'Enter plant name...',
@@ -111,9 +102,6 @@ const translations = {
     hungarian: 'Hungarian',
     sprayIntervals: 'Spray Intervals',
     sprayIntervalsDesc: 'Number of days between sprays for each plant type',
-    fruitTreeInterval: 'Fruit Trees',
-    grapeInterval: 'Grapevines',
-    bedInterval: 'Raised Beds',
     days: 'days',
     saveSettings: 'Save Settings',
     dataManagement: 'Data Management',
@@ -232,11 +220,6 @@ const translations = {
     settings: 'Beállítások',
     
     // Garden Map
-    fruitTrees: 'Gyümölcsfák',
-    raisedBeds: 'Magaságyások',
-    grapevines: 'Szőlőtőke',
-    raspberries: 'Málna',
-    herbsFlowers: 'Gyógynövények és virágok',
     addNewPlant: 'Új növény hozzáadása',
     
     // Status
@@ -279,13 +262,9 @@ const translations = {
     exampleBedPlants: 'pl. Paradicsom, Bazsalikom, Paprika...',
     exampleOtherPlants: 'pl. Rózsa, Levanda...',
     
-    // Plant types
-    fruit: 'Gyümölcsfa',
-    grape: 'Szőlőtő',
-    raspberry: 'Málna',
-    bed: 'Magaságyás',
-    other: 'Egyéb növény',
-    
+    // Plant types — injected from section descriptors at runtime
+    // (fruit, grape, raspberry, bed, other, shrub, etc.)
+
     // Add Plant Form
     plantName: 'Növény neve',
     enterPlantName: 'Írd be a növény nevét...',
@@ -325,9 +304,6 @@ const translations = {
     hungarian: 'Magyar',
     sprayIntervals: 'Permetezési intervallumok',
     sprayIntervalsDesc: 'Napok száma a permetezések között minden növénytípusnál',
-    fruitTreeInterval: 'Gyümölcsfák',
-    grapeInterval: 'Szőlőtők',
-    bedInterval: 'Magaságyások',
     days: 'nap',
     saveSettings: 'Beállítások mentése',
     dataManagement: 'Adatkezelés',
@@ -459,4 +435,11 @@ export const t = derived(currentLanguage, ($currentLanguage) => {
 // Helper function to change language
 export function setLanguage(lang) {
   currentLanguage.set(lang);
+}
+
+// Called by src/sections/index.js at module load to inject section-owned keys
+export function injectTranslations(map) {
+  for (const [lang, keys] of Object.entries(map)) {
+    if (translations[lang]) Object.assign(translations[lang], keys);
+  }
 }

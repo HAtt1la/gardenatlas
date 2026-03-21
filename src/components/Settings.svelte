@@ -170,47 +170,21 @@
     <p class="section-desc">{$t('sprayIntervalsDesc')}</p>
     
     <div class="interval-list">
-      <div class="interval-item">
-        <label for="grape-interval">🍇 {$t('grapevines')}</label>
-        <div class="interval-input-wrapper">
-          <input 
-            type="number" 
-            id="grape-interval"
-            bind:value={sprayIntervals.grape.spray}
-            min="1"
-            max="365"
-          />
-          <span class="interval-unit">{$t('days')}</span>
+      {#each SECTION_REGISTRY.filter(d => d.defaultSprayDays !== null) as d}
+        <div class="interval-item">
+          <label for="{d.type}-interval">{d.icon} {$t(d.defaultName)}</label>
+          <div class="interval-input-wrapper">
+            <input
+              type="number"
+              id="{d.type}-interval"
+              bind:value={sprayIntervals[d.type].spray}
+              min="1"
+              max="365"
+            />
+            <span class="interval-unit">{$t('days')}</span>
+          </div>
         </div>
-      </div>
-      
-      <div class="interval-item">
-        <label for="fruit-interval">🌳 {$t('fruitTrees')}</label>
-        <div class="interval-input-wrapper">
-          <input
-            type="number"
-            id="fruit-interval"
-            bind:value={sprayIntervals.fruit.spray}
-            min="1"
-            max="365"
-          />
-          <span class="interval-unit">{$t('days')}</span>
-        </div>
-      </div>
-
-      <div class="interval-item">
-        <label for="raspberry-interval">🫐 {$t('raspberries')}</label>
-        <div class="interval-input-wrapper">
-          <input
-            type="number"
-            id="raspberry-interval"
-            bind:value={sprayIntervals.raspberry.spray}
-            min="1"
-            max="365"
-          />
-          <span class="interval-unit">{$t('days')}</span>
-        </div>
-      </div>
+      {/each}
     </div>
     
     <button class="btn btn-primary" on:click={saveIntervals}>

@@ -1,7 +1,7 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { plants, navigateToPlant, loadPlants, showToast } from '../lib/stores.js';
-  import { calculateNextSpray, getPlantsInBed, getSections, saveSections, validateColDecrease, applyColDecrease, applyColIncrease, validateRowDecrease, applyRowDecrease, applyRowIncrease } from '../lib/db.js';
+  import { calculateNextSpray, getPlantsInBed, getSections, saveSections, validateColDecrease, applyColDecrease, applyColIncrease, validateRowDecrease, applyRowDecrease, applyRowIncrease, getMainPhotosForPlants } from '../lib/db.js';
   import { SECTION_BY_TYPE } from '../sections/index.js';
   import { t } from '../lib/i18n.js';
   import AddPlantInline from './AddPlantInline.svelte';
@@ -9,6 +9,7 @@
 
   let plantStatuses = {};
   let bedPlants = {};
+  let plantThumbs = {};
 
   let sections = [];
   let sheetSection = null;
@@ -86,11 +87,13 @@
     }
     plantStatuses = { ...plantStatuses };
     await loadBedPlants();
+    await loadThumbnails();
   });
 
   $: if ($plants.length > 0) {
     updateStatuses();
     loadBedPlants();
+    loadThumbnails();
   }
 
   async function updateStatuses() {
@@ -110,6 +113,21 @@
     }
     bedPlants = { ...newBedPlants };
   }
+
+  async function loadThumbnails() {
+    for (const url of Object.values(plantThumbs)) URL.revokeObjectURL(url);
+    const ids = $plants.filter(p => p.type !== 'placeholder').map(p => p.id);
+    const photos = await getMainPhotosForPlants(ids);
+    const newThumbs = {};
+    for (const [plantId, photo] of Object.entries(photos)) {
+      if (photo?.data) newThumbs[plantId] = URL.createObjectURL(photo.data);
+    }
+    plantThumbs = newThumbs;
+  }
+
+  onDestroy(() => {
+    for (const url of Object.values(plantThumbs)) URL.revokeObjectURL(url);
+  });
 
   function getStatusColor(plantId) {
     switch (plantStatuses[plantId]) {
@@ -246,6 +264,7 @@
         {secY}
         gardenWidth={GARDEN_WIDTH}
         {plantStatuses}
+        {plantThumbs}
         {bedPlants}
         onPlantClick={handlePlantClick}
         onPlaceholderClick={handlePlaceholderClick}
