@@ -1,31 +1,37 @@
 <script>
   import { createEventDispatcher } from 'svelte';
-  import { addEvent, EVENT_TYPES } from '../lib/db.js';
+  import { addEvent, updateEvent, EVENT_TYPES } from '../lib/db.js';
   import { t } from '../lib/i18n.js';
 
   export let plantId;
+  export let event = null; // if set, we're editing an existing event
 
   const dispatch = createEventDispatcher();
 
-  let eventType = 'spray';
-  let date = new Date().toISOString().split('T')[0];
-  let notes = '';
+  let eventType = event?.eventType ?? 'spray';
+  let date = event?.date ?? new Date().toISOString().split('T')[0];
+  let notes = event?.notes ?? '';
   let isSubmitting = false;
 
   async function handleSubmit() {
     if (!eventType || !date) return;
-    
+
     isSubmitting = true;
     try {
-      await addEvent({
-        plantId,
-        eventType,
-        date,
-        notes: notes.trim() || null
-      });
-      dispatch('saved');
+      if (event) {
+        await updateEvent(event.id, { eventType, date, notes: notes.trim() || null });
+        dispatch('updated');
+      } else {
+        await addEvent({
+          plantId,
+          eventType,
+          date,
+          notes: notes.trim() || null
+        });
+        dispatch('saved');
+      }
     } catch (err) {
-      console.error('Failed to add event:', err);
+      console.error('Failed to save event:', err);
     } finally {
       isSubmitting = false;
     }

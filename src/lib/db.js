@@ -12,6 +12,17 @@ db.version(1).stores({
   todos: '++id, createdAt, doneAt'
 });
 
+// Version 2: Care profiles and rules for plant health system
+db.version(2).stores({
+  plants: '++id, name, type, sectionId, color, &label, profileId',
+  events: '++id, [plantId+eventType], plantId, eventType, date, modifiedAt, source',
+  settings: 'key',
+  photos: '++id, plantId, isMain',
+  todos: '++id, createdAt, doneAt',
+  careProfiles: '++id, isBuiltin',
+  careRules: '++id, profileId'
+});
+
 // Event types - labels are i18n keys, will be translated at runtime
 export const EVENT_TYPES = [
   { id: 'planted', label: 'planted', icon: '🌱' },
@@ -26,7 +37,164 @@ export const EVENT_TYPES = [
 // Default spray interval (days) — used for spray status calculation
 export const DEFAULT_SPRAY_DAYS = 14;
 
-// CRUD Operations for Plants
+// ── Care Profiles ────────────────────────────────────────────────────────────
+//
+// A care profile defines what care actions are expected for a plant and when.
+// Each profile has a name and a list of rules. Rules define:
+//   trigger:       'season' | 'event:flowering' | 'event:sickness' | 'event:pruned'
+//   triggerMonths: [1..12]  — only for 'season' trigger
+//   action:        'spray' | 'prune' | 'water'
+//   product:       optional string (e.g. 'rézkénes', 'fungicide')
+//   purpose:       why this action is needed (shown in UI)
+//   windowDays:    how many days the task stays open before expiring
+//
+// Built-in profiles cover common European fruit trees and vines.
+// Users can add their own profiles and rules via the CRUD page (Phase 4).
+
+const BUILTIN_PROFILES = [
+  {
+    key: 'apple',
+    name: 'Almafa / Apple',
+    description: 'Common apple tree care',
+    isBuiltin: true,
+    rules: [
+      { trigger: 'season', triggerMonths: [2, 3],    action: 'spray',  product: 'rézkénes',  purpose: 'Fungicide — dormant season', windowDays: 21 },
+      { trigger: 'season', triggerMonths: [10, 11],  action: 'spray',  product: 'rézkénes',  purpose: 'Fungicide — late autumn',    windowDays: 21 },
+      { trigger: 'season', triggerMonths: [2, 3],    action: 'prune',  product: '',          purpose: 'Winter pruning',             windowDays: 30 },
+      { trigger: 'event:flowering',                  action: 'spray',  product: 'fungicide', purpose: 'Scab prevention',            windowDays: 10 },
+      { trigger: 'event:sickness',                   action: 'spray',  product: 'fungicide', purpose: 'Disease treatment',          windowDays: 7  },
+    ]
+  },
+  {
+    key: 'peach',
+    name: 'Őszibarack / Peach',
+    description: 'Peach tree care — monilia sensitive',
+    isBuiltin: true,
+    rules: [
+      { trigger: 'season', triggerMonths: [2, 3],    action: 'spray',  product: 'rézkénes',  purpose: 'Fungicide — dormant season', windowDays: 21 },
+      { trigger: 'season', triggerMonths: [10, 11],  action: 'spray',  product: 'rézkénes',  purpose: 'Fungicide — late autumn',    windowDays: 21 },
+      { trigger: 'season', triggerMonths: [2, 3],    action: 'prune',  product: '',          purpose: 'Winter pruning',             windowDays: 30 },
+      { trigger: 'event:flowering',                  action: 'spray',  product: 'fungicide', purpose: 'Monilia prevention',         windowDays: 7  },
+      { trigger: 'event:sickness',                   action: 'spray',  product: 'fungicide', purpose: 'Disease treatment',          windowDays: 7  },
+    ]
+  },
+  {
+    key: 'cherry',
+    name: 'Cseresznye/Meggy / Cherry',
+    description: 'Sweet and sour cherry care',
+    isBuiltin: true,
+    rules: [
+      { trigger: 'season', triggerMonths: [2, 3],    action: 'spray',  product: 'rézkénes',  purpose: 'Fungicide — dormant season', windowDays: 21 },
+      { trigger: 'season', triggerMonths: [10, 11],  action: 'spray',  product: 'rézkénes',  purpose: 'Fungicide — late autumn',    windowDays: 21 },
+      { trigger: 'season', triggerMonths: [2, 3],    action: 'prune',  product: '',          purpose: 'Winter pruning',             windowDays: 30 },
+      { trigger: 'event:flowering',                  action: 'spray',  product: 'fungicide', purpose: 'Monilia prevention',         windowDays: 7  },
+      { trigger: 'event:sickness',                   action: 'spray',  product: 'fungicide', purpose: 'Disease treatment',          windowDays: 7  },
+    ]
+  },
+  {
+    key: 'pear',
+    name: 'Körte / Pear',
+    description: 'Pear tree care',
+    isBuiltin: true,
+    rules: [
+      { trigger: 'season', triggerMonths: [2, 3],    action: 'spray',  product: 'rézkénes',  purpose: 'Fungicide — dormant season', windowDays: 21 },
+      { trigger: 'season', triggerMonths: [10, 11],  action: 'spray',  product: 'rézkénes',  purpose: 'Fungicide — late autumn',    windowDays: 21 },
+      { trigger: 'season', triggerMonths: [2, 3],    action: 'prune',  product: '',          purpose: 'Winter pruning',             windowDays: 30 },
+      { trigger: 'event:flowering',                  action: 'spray',  product: 'fungicide', purpose: 'Fire blight prevention',     windowDays: 10 },
+      { trigger: 'event:sickness',                   action: 'spray',  product: 'fungicide', purpose: 'Disease treatment',          windowDays: 7  },
+    ]
+  },
+  {
+    key: 'grape',
+    name: 'Szőlő / Grape',
+    description: 'Grapevine care — mildew sensitive',
+    isBuiltin: true,
+    rules: [
+      { trigger: 'season', triggerMonths: [3, 4],    action: 'spray',  product: 'rézkénes',  purpose: 'Fungicide — early spring',   windowDays: 21 },
+      { trigger: 'season', triggerMonths: [10, 11],  action: 'spray',  product: 'rézkénes',  purpose: 'Fungicide — late autumn',    windowDays: 21 },
+      { trigger: 'season', triggerMonths: [11, 12, 1, 2], action: 'prune', product: '',     purpose: 'Winter pruning',             windowDays: 60 },
+      { trigger: 'event:flowering',                  action: 'spray',  product: 'fungicide', purpose: 'Mildew prevention',          windowDays: 10 },
+      { trigger: 'event:sickness',                   action: 'spray',  product: 'fungicide', purpose: 'Disease treatment',          windowDays: 7  },
+    ]
+  },
+  {
+    key: 'raspberry',
+    name: 'Málna / Raspberry',
+    description: 'Raspberry cane care',
+    isBuiltin: true,
+    rules: [
+      { trigger: 'season', triggerMonths: [3],        action: 'spray',  product: 'rézkénes',  purpose: 'Fungicide — early spring',  windowDays: 14 },
+      { trigger: 'season', triggerMonths: [11],        action: 'prune',  product: '',          purpose: 'Autumn cane pruning',       windowDays: 30 },
+      { trigger: 'event:sickness',                    action: 'spray',  product: 'fungicide', purpose: 'Disease treatment',         windowDays: 7  },
+    ]
+  },
+  {
+    key: 'shrub',
+    name: 'Cserje / Shrub',
+    description: 'General shrub care',
+    isBuiltin: true,
+    rules: [
+      { trigger: 'season', triggerMonths: [2, 3],    action: 'prune',  product: '',          purpose: 'Spring pruning',             windowDays: 30 },
+      { trigger: 'event:sickness',                   action: 'spray',  product: 'fungicide', purpose: 'Disease treatment',          windowDays: 7  },
+    ]
+  },
+];
+
+// Seed built-in care profiles if they don't exist yet
+export async function seedCareProfiles() {
+  const existing = await db.careProfiles.where('isBuiltin').equals(1).toArray();
+  const existingKeys = new Set(existing.map(p => p.key));
+
+  for (const profile of BUILTIN_PROFILES) {
+    if (existingKeys.has(profile.key)) continue;
+    const { rules, ...profileData } = profile;
+    const profileId = await db.careProfiles.add({ ...profileData, isBuiltin: 1 });
+    for (const rule of rules) {
+      await db.careRules.add({ ...rule, profileId });
+    }
+  }
+}
+
+// ── Care Profile CRUD ────────────────────────────────────────────────────────
+
+export async function getCareProfiles() {
+  return await db.careProfiles.toArray();
+}
+
+export async function getCareProfile(id) {
+  return await db.careProfiles.get(id);
+}
+
+export async function getCareRulesForProfile(profileId) {
+  return await db.careRules.where('profileId').equals(profileId).toArray();
+}
+
+export async function addCareProfile(profile) {
+  return await db.careProfiles.add({ ...profile, isBuiltin: 0 });
+}
+
+export async function updateCareProfile(id, changes) {
+  return await db.careProfiles.update(id, changes);
+}
+
+export async function deleteCareProfile(id) {
+  await db.careRules.where('profileId').equals(id).delete();
+  return await db.careProfiles.delete(id);
+}
+
+export async function addCareRule(rule) {
+  return await db.careRules.add(rule);
+}
+
+export async function updateCareRule(id, changes) {
+  return await db.careRules.update(id, changes);
+}
+
+export async function deleteCareRule(id) {
+  return await db.careRules.delete(id);
+}
+
+
 export async function getAllPlants() {
   return await db.plants.toArray();
 }

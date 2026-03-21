@@ -1,8 +1,9 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { plants, navigateToPlant, loadPlants, showToast } from '../lib/stores.js';
-  import { calculateAllSprayStatuses, getSections, saveSections, validateColDecrease, applyColDecrease, applyColIncrease, validateRowDecrease, applyRowDecrease, applyRowIncrease, getMainPhotosForPlants } from '../lib/db.js';
+  import { getSections, saveSections, validateColDecrease, applyColDecrease, applyColIncrease, validateRowDecrease, applyRowDecrease, applyRowIncrease, getMainPhotosForPlants } from '../lib/db.js';
   import { t } from '../lib/i18n.js';
+  import { getAllPlantHealthStatuses, HEALTH_COLORS } from '../lib/health.js';
   import AddPlantInline from './AddPlantInline.svelte';
   import SectionSheet from './SectionSheet.svelte';
 
@@ -66,7 +67,7 @@
 
   onMount(async () => {
     sections = await getSections();
-    plantStatuses = await calculateAllSprayStatuses($plants);
+    plantStatuses = await getAllPlantHealthStatuses($plants);
     await loadThumbnails();
   });
 
@@ -76,7 +77,7 @@
   }
 
   async function updateStatuses() {
-    plantStatuses = await calculateAllSprayStatuses($plants);
+    plantStatuses = await getAllPlantHealthStatuses($plants);
   }
 
   async function loadThumbnails() {
@@ -95,12 +96,8 @@
   });
 
   function getStatusColor(plantId) {
-    switch (plantStatuses[plantId]) {
-      case 'overdue': return '#e74c3c';
-      case 'soon':    return '#f39c12';
-      case 'ok':      return '#27ae60';
-      default:        return '#95a5a6';
-    }
+    const s = plantStatuses[plantId]?.status;
+    return HEALTH_COLORS[s] ?? HEALTH_COLORS.none;
   }
 
   function colorToTint(hex) {
@@ -283,10 +280,11 @@
 
   <!-- Legend -->
   <div class="legend">
-    <div class="legend-item"><span class="legend-dot" style="background:#27ae60"></span><span>{$t('ok')}</span></div>
-    <div class="legend-item"><span class="legend-dot" style="background:#f39c12"></span><span>{$t('soon')}</span></div>
-    <div class="legend-item"><span class="legend-dot" style="background:#e74c3c"></span><span>{$t('overdue')}</span></div>
-    <div class="legend-item"><span class="legend-dot" style="background:#95a5a6"></span><span>{$t('noData')}</span></div>
+    <div class="legend-item"><span class="legend-dot" style="background:{HEALTH_COLORS.good}"></span><span>{$t('health_good')}</span></div>
+    <div class="legend-item"><span class="legend-dot" style="background:{HEALTH_COLORS.fair}"></span><span>{$t('health_fair')}</span></div>
+    <div class="legend-item"><span class="legend-dot" style="background:{HEALTH_COLORS.poor}"></span><span>{$t('health_poor')}</span></div>
+    <div class="legend-item"><span class="legend-dot" style="background:{HEALTH_COLORS.bad}"></span><span>{$t('health_bad')}</span></div>
+    <div class="legend-item"><span class="legend-dot" style="background:{HEALTH_COLORS.none}"></span><span>{$t('noProfile')}</span></div>
   </div>
 </div>
 

@@ -3,15 +3,16 @@
   import GardenMap from './components/GardenMap.svelte';
   import PlantDetail from './components/PlantDetail.svelte';
   import Settings from './components/Settings.svelte';
+  import CareProfiles from './components/CareProfiles.svelte';
   import MultiEventForm from './components/MultiEventForm.svelte';
   import TodoList from './components/TodoList.svelte';
   import SearchBar from './components/SearchBar.svelte';
   import Toast from './components/Toast.svelte';
   import BackupBanner from './components/BackupBanner.svelte';
   import UpdateBanner from './components/UpdateBanner.svelte';
-  import { currentView, loadPlants, navigateToMap, navigateToSettings, navigateToMultiEvent, toasts, activeEventTab } from './lib/stores.js';
+  import { currentView, loadPlants, navigateToMap, navigateToSettings, navigateToCareProfiles, navigateToMultiEvent, toasts, activeEventTab } from './lib/stores.js';
   import { initializeSampleData } from './lib/sampleData.js';
-  import { migratePlantSectionIds, shouldShowBackupPrompt } from './lib/db.js';
+  import { migratePlantSectionIds, shouldShowBackupPrompt, seedCareProfiles } from './lib/db.js';
   import { t } from './lib/i18n.js';
 
   let showBackupBanner = false;
@@ -23,6 +24,7 @@
     await loadPlants();
     const migrated = await migratePlantSectionIds();
     if (migrated) await loadPlants();
+    await seedCareProfiles();
     showBackupBanner = await shouldShowBackupPrompt();
 
     // Detect waiting service worker
@@ -101,7 +103,9 @@
     {:else if $currentView === 'detail'}
       <PlantDetail />
     {:else if $currentView === 'settings'}
-      <Settings />
+      <Settings onCareProfiles={navigateToCareProfiles} />
+    {:else if $currentView === 'careProfiles'}
+      <CareProfiles />
     {:else if $currentView === 'eventPanel'}
       <div class="tab-panel">
         <div class="tab-bar">

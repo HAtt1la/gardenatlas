@@ -11,8 +11,9 @@ An offline-first Progressive Web App for garden management. Track plants, log ca
 - **Garden map** — SVG top-down view of all sections; tap a plant card to open its detail
 - **Unified sections** — add any number of sections, each fully configurable (name, columns, rows, color, wire lines)
 - **Plant labels (sorszám)** — each plant has an editable label for physical garden markers; searchable
-- **Spray forecasting** — calculates next spray date from last event; status dot on each card (green / orange / red)
-- **Event timeline** — log flowering, spraying, pruning, harvesting, planting per plant
+- **Plant health** — rule-based health score (good / fair / poor / bad) derived from care profiles and event history; shown as a colored status dot on each card
+- **Care profiles** — named rule sets (e.g. "Apple tree") with seasonal and event-triggered care rules; assign one profile per plant
+- **Event timeline** — log flowering, spraying, pruning, harvesting, planting, sickness per plant; events are editable
 - **Bulk events** — add an event to many plants at once (e.g. spray the whole garden)
 - **Photos** — up to 3 compressed photos per plant stored in IndexedDB; photo replaces color fallback on card
 - **Todo list** — task tracker with dependency chains
@@ -50,7 +51,8 @@ src/
   main.js                     # entry point, SW registration
   App.svelte                  # app shell, routing, update detection
   lib/
-    db.js                     # Dexie/IndexedDB — all CRUD, migrations, forecasts
+    db.js                     # Dexie/IndexedDB — all CRUD, migrations, care profile seed
+    health.js                 # health engine — derives status from care rules + events
     stores.js                 # Svelte reactive stores
     i18n.js                   # EN/HU translations
     sampleData.js             # seed data for first launch
@@ -58,9 +60,10 @@ src/
     GardenMap.svelte          # SVG map, inlined section + plant card renderer
     SectionSheet.svelte       # bottom sheet: section config + add plant
     AddPlantInline.svelte     # convert-placeholder form
-    PlantDetail.svelte        # plant detail view (events, photos, edit, label)
-    EventForm.svelte          # single-plant event form
+    PlantDetail.svelte        # plant detail view (events, photos, health, edit)
+    EventForm.svelte          # single-plant event form (add + edit)
     MultiEventForm.svelte     # bulk event form
+    CareProfiles.svelte       # care profile + rule CRUD page
     Settings.svelte           # settings, export/import, section management
     SearchBar.svelte          # plant search (name + label)
     TodoList.svelte           # todo tracker
@@ -76,7 +79,6 @@ docs/
   architecture.md             # system architecture reference
   contributor/
     technical-guide.md        # codebase internals for contributors
-    adding-sections.md        # ← REMOVED (sections unified, no longer extensible by type)
   user/
     user-guide.md             # end-user documentation
 ```
@@ -107,17 +109,19 @@ docs/
 
 ---
 
-## Database Schema (v1)
+## Database Schema (v2)
 
 | Table | Key fields |
 |-------|------------|
-| `plants` | `id`, `name`, `type`, `sectionId`, `color`, `label` |
-| `events` | `id`, `plantId`, `eventType`, `date`, `modifiedAt` |
+| `plants` | `id`, `name`, `type`, `sectionId`, `color`, `label`, `profileId` |
+| `events` | `id`, `plantId`, `eventType`, `date`, `modifiedAt`, `source` |
 | `settings` | `key` (key-value store) |
 | `photos` | `id`, `plantId`, `isMain` (blob) |
 | `todos` | `id`, `createdAt`, `doneAt` |
+| `careProfiles` | `id`, `name`, `description`, `isBuiltin` |
+| `careRules` | `id`, `profileId`, `trigger`, `triggerMonths`, `action`, `product`, `purpose`, `windowDays` |
 
-Plant `type` is always `'plant'` or `'placeholder'`. Schema was reset to v1 in the unified section refactor.
+Plant `type` values: `grape`, `fruit`, `raspberry`, `bed`, `other`, `placeholder`.
 
 ---
 
