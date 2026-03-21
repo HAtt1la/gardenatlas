@@ -1,5 +1,6 @@
 import { writable, derived } from 'svelte/store';
 import { getAllPlants, getEventsForPlant, calculateNextSpray } from './db.js';
+import { getPlantHealth } from './health.js';
 
 // Current view state
 export const currentView = writable('map'); // 'map', 'detail', 'settings', 'eventPanel'
@@ -28,19 +29,24 @@ export const selectedPlant = derived(
 // Plant events (needs to be loaded separately)
 export const plantEvents = writable([]);
 export const plantForecast = writable(null);
+export const plantHealth = writable(null);
 
 export async function loadPlantDetails(plantId) {
   if (!plantId) {
     plantEvents.set([]);
     plantForecast.set(null);
+    plantHealth.set(null);
     return;
   }
-  
+
   const events = await getEventsForPlant(plantId);
   plantEvents.set(events);
-  
+
   const forecast = await calculateNextSpray(plantId);
   plantForecast.set(forecast);
+
+  const health = await getPlantHealth(plantId);
+  plantHealth.set(health);
 }
 
 // Search results
@@ -75,6 +81,10 @@ export function navigateToPlantDetail(plant) {
 
 export function navigateToSettings() {
   currentView.set('settings');
+}
+
+export function navigateToCareProfiles() {
+  currentView.set('careProfiles');
 }
 
 export function navigateToMultiEvent() {

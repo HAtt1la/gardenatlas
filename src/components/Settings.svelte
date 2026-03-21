@@ -4,6 +4,8 @@
   import { currentLanguage, setLanguage, t } from '../lib/i18n.js';
   import { version as APP_VERSION } from '../../package.json';
 
+  export let onCareProfiles = null;
+
   let sprayDays = DEFAULT_SPRAY_DAYS;
   let sections = [];
   let fileInput;
@@ -207,6 +209,15 @@
     </div>
 
     <button class="btn btn-secondary" on:click={addSection}>+ {$t('addSection')}</button>
+  </section>
+
+  <!-- Care Profiles -->
+  <section class="section">
+    <h3 class="section-title">{$t('careProfiles')}</h3>
+    <p class="section-desc">{$t('careProfilesDesc')}</p>
+    <button class="btn btn-secondary" on:click={() => onCareProfiles?.()}>
+      🌿 {$t('careProfiles')} →
+    </button>
   </section>
 
   <!-- Data Management -->

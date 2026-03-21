@@ -13,14 +13,15 @@ GardenAtlas is an app for tracking the plants in your garden. You can record car
 5. [Plant detail](#5-plant-detail)
 6. [Recording events](#6-recording-events)
 7. [Bulk events](#7-bulk-events)
-8. [Spray forecasting](#8-spray-forecasting)
-9. [Photos](#9-photos)
-10. [Todo list](#10-todo-list)
-11. [Search](#11-search)
-12. [Settings](#12-settings)
-13. [Backing up your data](#13-backing-up-your-data)
-14. [App updates](#14-app-updates)
-15. [Language](#15-language)
+8. [Plant health](#8-plant-health)
+9. [Care profiles](#9-care-profiles)
+10. [Photos](#10-photos)
+11. [Todo list](#11-todo-list)
+12. [Search](#12-search)
+13. [Settings](#13-settings)
+14. [Backing up your data](#14-backing-up-your-data)
+15. [App updates](#15-app-updates)
+16. [Language](#16-language)
 
 ---
 
@@ -48,10 +49,11 @@ The map is the main screen. It shows all your garden sections stacked vertically
 - **Photo** — if you have added one, it fills the card background
 - **Card color** — a colored background tint when there is no photo
 - **Status dot** (top-right corner of the card):
-  - 🟢 Green — spray is up to date
-  - 🟠 Orange — due soon (within 3 days)
-  - 🔴 Red — overdue
-  - ⚪ Grey — no spray event recorded yet
+  - 🟢 Green — all care tasks are up to date (good health)
+  - 🟡 Yellow — one care task overdue or due (fair)
+  - 🟠 Orange — two tasks overdue (poor)
+  - 🔴 Red — three or more tasks overdue (bad)
+  - ⚪ Grey — no care profile assigned yet
 
 Tap any plant card to open its detail view.
 
@@ -131,8 +133,9 @@ Tap any plant card on the map to open its detail view.
 The detail view shows:
 - Plant name and assigned section
 - Label (sorszám)
+- Assigned care profile and health status breakdown (open issues, what needs doing and why)
 - Spray forecast (next due date and status)
-- Event timeline — all recorded events in reverse chronological order
+- Event timeline — all recorded events in reverse chronological order; tap the ✏️ button to edit an event
 - Photos
 
 ### Edit a plant
@@ -189,27 +192,68 @@ All selected plants receive the event and their status dots update.
 
 ---
 
-## 8. Spray forecasting
+## 8. Plant health
 
-The app automatically calculates when each plant is next due for spraying, based on:
-- The date of the most recent **Sprayed** event
-- The global spray interval set in Settings
+The app calculates a health score for each plant based on its **care profile** — a set of rules that define when certain care actions are needed.
 
-### Set the spray interval
+### Health status levels
 
-1. Go to **Settings**
-2. Find **Spray Intervals**
-3. Set the number of days between sprays
+| Status | Dot | Meaning |
+|--------|-----|---------|
+| Good | 🟢 | All care tasks satisfied |
+| Fair | 🟡 | 1 open task |
+| Poor | 🟠 | 2 open tasks |
+| Bad | 🔴 | 3 or more open tasks |
+| No profile | ⚪ | No care profile assigned |
 
-The status dot on each map card reflects the forecast:
-- 🟢 More than 3 days until due
-- 🟠 Due within 3 days
-- 🔴 Overdue (past the due date)
-- ⚪ No spray event recorded yet
+### Viewing health details
+
+Open a plant's detail view. Under the plant name you'll see the current health status and a list of open issues explaining what needs to be done and why (e.g. "Spray for scab — overdue since March").
+
+### Assigning a care profile
+
+1. Open the plant's detail view
+2. Tap **Edit**
+3. Choose a care profile from the dropdown
+4. Tap **Save**
 
 ---
 
-## 9. Photos
+## 9. Care profiles
+
+Care profiles are named collections of care rules. GardenAtlas comes with seven built-in profiles (Grape, Apple, Pear, Plum, Cherry, Raspberry, Rose). You can also create your own.
+
+### Access
+
+1. Go to **Settings** (gear icon)
+2. Tap **Care Profiles →**
+
+### What a care rule contains
+
+- **Trigger** — when the rule activates:
+  - *Season* — active during specific months (e.g. March–May)
+  - *Flowering* — active after a flowering event is recorded
+  - *Sickness/Pest* — active after a sickness event; remains open until a matching spray is recorded
+  - *After pruning* — active after a pruning event
+- **Action** — what needs to be done (spray, prune, water)
+- **Purpose** — why (e.g. "Scab prevention")
+- **Product** — optional product name
+- **Window** — days within which the action must be done to satisfy the rule
+
+### Create a profile
+
+1. Tap **+ Add Care Profile**
+2. Enter a name and optional description
+3. Tap **Save**
+4. Expand the profile and tap **+ Add Rule** to add rules
+
+### Edit / delete
+
+Tap the ✏️ icon on a profile or rule to edit it. Tap 🗑️ to delete. Built-in profiles cannot be deleted.
+
+---
+
+## 10. Photos
 
 Each plant can have up to 3 photos.
 
@@ -229,7 +273,7 @@ Photos are automatically compressed (max 800px, 70% JPEG quality) and stored on 
 
 ---
 
-## 10. Todo list
+## 11. Todo list
 
 The todo list is a task tracker for garden work.
 
@@ -249,28 +293,29 @@ Type in the input at the top and tap **Add task**.
 
 ---
 
-## 11. Search
+## 12. Search
 
 Tap the **🔍 Search** field in the map header to search plants by name or label (sorszám). Matching plants are highlighted on the map; tap a result card to open its detail.
 
 ---
 
-## 12. Settings
+## 13. Settings
 
 Access via the **⚙️ gear icon** in the header.
 
 | Setting | Description |
 |---------|-------------|
 | Language | Switch between English and Hungarian |
-| Spray Intervals | Days between sprays (global setting) |
+| Spray Intervals | Days between sprays (used by plant detail forecast) |
 | Garden Sections | Add, remove, and reorder sections |
+| Care Profiles | Manage care profiles and rules |
 | Export Data | Download a full JSON backup of all data |
 | Import Data | Restore from a previously exported backup |
 | Clear All Data | Delete everything (cannot be undone) |
 
 ---
 
-## 13. Backing up your data
+## 14. Backing up your data
 
 Your data is stored only on your device. If you clear browser storage or switch devices, it will be lost unless you have a backup.
 
@@ -292,7 +337,7 @@ The app will show a reminder banner if you haven't backed up in 7 days.
 
 ---
 
-## 14. App updates
+## 15. App updates
 
 When a new version of the app is available, a green banner appears at the top of the screen.
 
@@ -301,7 +346,7 @@ When a new version of the app is available, a green banner appears at the top of
 
 ---
 
-## 15. Language
+## 16. Language
 
 The app is available in **English** and **Hungarian**.
 
@@ -317,7 +362,7 @@ Your choice is saved automatically and persists across sessions.
 Browser storage may have been cleared. Import from your last backup (Settings → Import). Always keep an up-to-date backup file.
 
 **Status dots all grey**
-No spray events have been recorded yet, or the spray interval is not configured. Add a Sprayed event to a plant and check Settings → Spray Intervals.
+No care profile has been assigned to the plants. Open a plant's detail view, tap Edit, and choose a care profile from the dropdown.
 
 **App won't install on Android**
 Make sure you're using Chrome or Brave. The app must be served over HTTPS. Try clearing the browser cache and reloading.

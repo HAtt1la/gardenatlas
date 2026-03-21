@@ -26,8 +26,11 @@ GardenAtlas is an offline-first PWA. There is no backend, no API, no user accoun
 │  Svelte Stores (shared state)                │
 │  plants, currentView, selectedPlantId, toast │
 ├──────────────────────────────────────────────┤
+│  health.js (health engine)                   │
+│  Derives open tasks + health status          │
+├──────────────────────────────────────────────┤
 │  db.js (data layer)                          │
-│  Dexie schema, migrations, CRUD, forecasts   │
+│  Dexie schema, migrations, CRUD, seed data   │
 ├──────────────────────────────────────────────┤
 │  IndexedDB (persistence)                     │
 └──────────────────────────────────────────────┘
@@ -43,11 +46,12 @@ GardenAtlas is an offline-first PWA. There is no backend, no API, no user accoun
 |-------|------|-------|
 | `id` | auto-increment | primary key |
 | `name` | string | display name |
-| `type` | string | `'plant'` or `'placeholder'` |
-| `sectionId` | string | links plant to a section instance (e.g. `'section-1'`) |
+| `type` | string | `'grape'`, `'fruit'`, `'raspberry'`, `'bed'`, `'other'`, or `'placeholder'` |
+| `sectionId` | string | links plant to a section instance |
 | `color` | hex string | card background tint color |
 | `label` | string\|null | user-editable garden label (sorszám); unique index; defaults to id on creation |
-| `sortOrder` | number\|null | explicit column position within a row (set when user repositions a placeholder) |
+| `sortOrder` | number\|null | explicit column position within a row |
+| `profileId` | number\|null | foreign key → careProfiles (one care profile per plant) |
 
 ### events
 
@@ -55,10 +59,11 @@ GardenAtlas is an offline-first PWA. There is no backend, no API, no user accoun
 |-------|------|-------|
 | `id` | auto-increment | primary key |
 | `plantId` | number | foreign key → plants |
-| `eventType` | string | `spray`, `pruned`, `planted`, `flowering`, `harvested`, `crop`, `sickness` |
+| `eventType` | string | `spray`, `pruned`, `planted`, `flowering`, `harvested`, `crop`, `sickness`, `watered`, `other` |
 | `date` | ISO string | event date |
 | `notes` | string\|null | optional notes |
 | `modifiedAt` | ISO string | last write timestamp |
+| `source` | string\|null | reserved for system-written events (e.g. `'system:missed'`) |
 
 ### settings
 
@@ -90,11 +95,33 @@ Key-value store. Notable keys:
 | `createdAt` | ISO string | |
 | `doneAt` | ISO string\|null | set when marked complete |
 
+### careProfiles
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | auto-increment | primary key |
+| `name` | string | profile name (e.g. "Apple tree") |
+| `description` | string\|null | optional description |
+| `isBuiltin` | boolean | built-in profiles cannot be deleted |
+
+### careRules
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | auto-increment | primary key |
+| `profileId` | number | foreign key → careProfiles |
+| `trigger` | string | `'season'`, `'event:flowering'`, `'event:sickness'`, `'event:pruned'` |
+| `triggerMonths` | number[] | months (1–12) active, used when `trigger === 'season'` |
+| `action` | string | `'spray'`, `'prune'`, `'water'` |
+| `product` | string\|null | optional product name |
+| `purpose` | string | human-readable reason for this rule |
+| `windowDays` | number | days after trigger before rule expires (sickness rules never expire by time) |
+
 ---
 
 ## Schema
 
-Current version: **1** (reset from v8→v9 legacy chain in the unified section refactor).
+Current version: **2**.
 
 Never modify an existing `db.version(N)` block — always add a new `db.version(N+1)`.
 
@@ -143,10 +170,43 @@ Constants: `CARD_W = 52`, `CARD_H = 60`, `ROW_GAP = 10`, `WIRE_COLOR = '#8d6e63'
 
 Plant card layers (bottom to top):
 1. Background rect — `colorToTint(plant.color)` fill
-2. Status dot — top-right corner, colored by spray forecast
+2. Status dot — top-right corner, colored by **health system** (`good`/`fair`/`poor`/`bad`/`none`)
 3. Photo (if available) — clipped to card bounds
 4. Label fade gradient — transparent→white at card bottom
 5. Plant name text
+
+---
+
+## Health System
+
+`src/lib/health.js` derives plant health at runtime — no separate stored table.
+
+### How health is computed (`getPlantHealth(plantId)`)
+
+1. Load the plant's assigned care profile and its rules
+2. For each rule, check if its trigger is currently active:
+   - `season`: current month is in `rule.triggerMonths`
+   - `event:flowering` / `event:pruned`: found such an event within `windowDays` of today
+   - `event:sickness`: found a sickness event with no matching spray after it (persistent, no time expiry)
+3. If trigger is active, check if the required action was recorded within `windowDays`
+4. If not → open issue
+5. Count open issues → `0=good`, `1=fair`, `2=poor`, `≥3=bad`; no profile → `none`
+
+### HEALTH_COLORS
+
+```js
+export const HEALTH_COLORS = {
+  good: '#27ae60',   // green
+  fair: '#f0c040',   // yellow
+  poor: '#e67e22',   // orange
+  bad:  '#e74c3c',   // red
+  none: '#95a5a6'    // grey
+};
+```
+
+### Built-in profiles
+
+Seven profiles are seeded by `seedCareProfiles()` in `db.js` (called on app mount): Grape, Apple, Pear, Plum, Cherry, Raspberry, Rose. Profiles with `isBuiltin: true` cannot be deleted but can be edited.
 
 ---
 
@@ -155,27 +215,26 @@ Plant card layers (bottom to top):
 | Store | Type | Purpose |
 |-------|------|---------|
 | `plants` | writable | full plant array; refreshed via `loadPlants()` |
-| `currentView` | writable | `'map'`, `'detail'`, `'settings'`, `'eventPanel'` |
+| `currentView` | writable | `'map'`, `'detail'`, `'settings'`, `'careProfiles'`, `'eventPanel'` |
 | `selectedPlantId` | writable | id of plant open in detail view |
 | `searchQuery` | writable | current search string |
 | `activeEventTab` | writable | `'events'` or `'todos'` in the event panel |
 | `toasts` | writable | array of `{ id, message, type }` |
 | `plantEvents` | writable | events for currently selected plant |
-| `plantForecast` | writable | forecast for currently selected plant |
+| `plantForecast` | writable | spray forecast for currently selected plant |
+| `plantHealth` | writable | health result `{ status, issues, noProfile }` for currently selected plant |
+
+Navigation helpers: `navigateToMap()`, `navigateToSettings()`, `navigateToCareProfiles()`, `navigateToMultiEvent()`, `navigateToTodos()`.
 
 Components call `db.js` functions directly in `onMount` for local data. Shared reactive data goes through stores.
 
 ---
 
-## Forecast Logic
+## Forecast
 
-`calculateNextSpray(plantId)` in `db.js`:
+`calculateNextSpray(plantId)` in `db.js` is still exported and used by `PlantDetail` to show the next spray date. It reads the most recent `spray` event and the global `sprayIntervals` setting. Status: `'never'`, `'ok'`, `'soon'` (≤3 days), `'overdue'`.
 
-1. Finds the most recent `spray` event for the plant
-2. Reads the global spray interval from settings (`sprayIntervals`, default `DEFAULT_SPRAY_DAYS = 14`)
-3. Returns `{ status, date, daysUntil }` where status is `'never'`, `'ok'`, `'soon'` (≤3 days), or `'overdue'`
-
-Status is visualised as a colored dot in the top-right corner of each map card.
+The **map status dot** uses the health system (`health.js`), not this forecast.
 
 ---
 

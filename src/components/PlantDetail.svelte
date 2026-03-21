@@ -1,8 +1,9 @@
 <script>
-  import { selectedPlant, plantEvents, plantForecast, loadPlantDetails, loadPlants, showToast, navigateToMap } from '../lib/stores.js';
-  import { updatePlant, deleteEvent, convertToPlaceholder, isLabelTaken, EVENT_TYPES } from '../lib/db.js';
+  import { selectedPlant, plantEvents, plantForecast, plantHealth, loadPlantDetails, loadPlants, showToast, navigateToMap } from '../lib/stores.js';
+  import { updatePlant, deleteEvent, convertToPlaceholder, isLabelTaken, EVENT_TYPES, getCareProfiles } from '../lib/db.js';
   import { t } from '../lib/i18n.js';
   import { PLANT_COLORS } from '../lib/constants.js';
+  import { HEALTH_COLORS } from '../lib/health.js';
   import EventForm from './EventForm.svelte';
   import PhotoGallery from './PhotoGallery.svelte';
 
@@ -11,8 +12,17 @@
   let editNotes = '';
   let editColor = '';
   let editLabel = '';
+  let editProfileId = null;
   let labelError = '';
   let showEventForm = false;
+  let editingEventId = null;
+  let careProfiles = [];
+
+  // Load care profiles for the dropdown
+  async function loadCareProfiles() {
+    careProfiles = await getCareProfiles();
+  }
+  loadCareProfiles();
 
   // Update edit fields when plant changes (but not while actively editing)
   $: if ($selectedPlant && !isEditing) {
@@ -20,6 +30,7 @@
     editNotes = $selectedPlant.notes || '';
     editColor = $selectedPlant.color || '';
     editLabel = $selectedPlant.label || '';
+    editProfileId = $selectedPlant.profileId ?? null;
     labelError = '';
   }
 
@@ -49,7 +60,8 @@
       name: editName,
       notes: editNotes,
       color: editColor || null,
-      label: trimmedLabel || null
+      label: trimmedLabel || null,
+      profileId: editProfileId || null
     });
     isEditing = false;
     labelError = '';
@@ -63,6 +75,7 @@
     editName = $selectedPlant.name;
     editNotes = $selectedPlant.notes || '';
     editLabel = $selectedPlant.label || '';
+    editProfileId = $selectedPlant.profileId ?? null;
     labelError = '';
     isEditing = false;
   }
@@ -71,6 +84,12 @@
     await loadPlantDetails($selectedPlant.id);
     showEventForm = false;
     showToast($t('eventSaved'), 'success');
+  }
+
+  async function handleEventUpdated() {
+    await loadPlantDetails($selectedPlant.id);
+    editingEventId = null;
+    showToast($t('eventUpdated'), 'success');
   }
 
   async function handleDeleteEvent(eventId) {
@@ -192,6 +211,17 @@
             {/each}
           </div>
         </div>
+
+        <!-- Care Profile Picker -->
+        <div class="emoji-picker">
+          <div class="section-title">{$t('assignProfile')}</div>
+          <select class="profile-select" bind:value={editProfileId}>
+            <option value={null}>{$t('noProfile')}</option>
+            {#each careProfiles as profile}
+              <option value={profile.id}>{profile.name}</option>
+            {/each}
+          </select>
+        </div>
         
         <div class="edit-actions">
           <button class="btn btn-secondary" on:click={cancelEdit}>{$t('cancel')}</button>
@@ -207,6 +237,35 @@
           <p class="notes-empty">{$t('noNotesYet')}</p>
         {/if}
       </div>
+
+      <!-- Health Breakdown -->
+      {#if $plantHealth && !$plantHealth.noProfile}
+        {@const hcolor = HEALTH_COLORS[$plantHealth.status]}
+        <div class="section health-section">
+          <div class="health-header">
+            <h3 class="section-title" style="margin:0">{$t('plantHealth')}</h3>
+            <span class="health-badge" style="background:{hcolor}">{$t('health_' + $plantHealth.status)}</span>
+          </div>
+          {#if $plantHealth.issues.length === 0}
+            <p class="health-ok">✓ {$t('healthAllGood')}</p>
+          {:else}
+            <div class="health-issues">
+              {#each $plantHealth.issues as issue}
+                <div class="health-issue {issue.overdue ? 'issue-overdue' : 'issue-pending'}">
+                  <span class="issue-icon">{issue.action === 'spray' ? '💨' : issue.action === 'prune' ? '✂️' : '💧'}</span>
+                  <div class="issue-body">
+                    <span class="issue-purpose">{issue.purpose}</span>
+                    {#if issue.product}
+                      <span class="issue-product">{issue.product}</span>
+                    {/if}
+                    <span class="issue-due">{issue.overdue ? $t('issueOverdue') : $t('issueDueBy', { date: formatDate(issue.dueDate) })}</span>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/if}
     {/if}
 
     <!-- Events Timeline -->
@@ -231,23 +290,37 @@
           {#each $plantEvents as event}
             {@const eventType = getEventType(event.eventType)}
             <div class="timeline-item">
-              <div class="timeline-icon">{eventType.icon}</div>
-              <div class="timeline-content">
-                <div class="timeline-header">
-                  <span class="timeline-type">{$t(eventType.label)}</span>
-                  <span class="timeline-date">{formatDate(event.date)}</span>
+              {#if editingEventId === event.id}
+                <div class="timeline-edit">
+                  <EventForm
+                    plantId={$selectedPlant.id}
+                    event={event}
+                    on:updated={handleEventUpdated}
+                    on:cancel={() => editingEventId = null}
+                  />
                 </div>
-                {#if event.notes}
-                  <p class="timeline-notes">{event.notes}</p>
-                {/if}
-              </div>
-              <button 
-                class="btn-delete" 
-                on:click={() => handleDeleteEvent(event.id)}
-                aria-label={$t('delete')}
-              >
-                🗑️
-              </button>
+              {:else}
+                <div class="timeline-icon">{eventType.icon}</div>
+                <div class="timeline-content">
+                  <div class="timeline-header">
+                    <span class="timeline-type">{$t(eventType.label)}</span>
+                    <span class="timeline-date">{formatDate(event.date)}</span>
+                  </div>
+                  {#if event.notes}
+                    <p class="timeline-notes">{event.notes}</p>
+                  {/if}
+                </div>
+                <button
+                  class="btn-icon"
+                  on:click={() => editingEventId = event.id}
+                  aria-label={$t('editEvent')}
+                >✏️</button>
+                <button
+                  class="btn-delete"
+                  on:click={() => handleDeleteEvent(event.id)}
+                  aria-label={$t('delete')}
+                >🗑️</button>
+              {/if}
             </div>
           {/each}
         </div>
@@ -498,6 +571,23 @@
     opacity: 1;
   }
 
+  .btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+    font-size: 0.9rem;
+  }
+
+  .btn-icon:hover {
+    opacity: 1;
+  }
+
+  .timeline-edit {
+    width: 100%;
+  }
+
   .btn {
     padding: 0.5rem 1rem;
     border-radius: 8px;
@@ -687,5 +777,100 @@
     text-align: center;
     color: #666;
     padding: 2rem;
+  }
+
+  .profile-select {
+    width: 100%;
+    padding: 0.625rem;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.9375rem;
+    background: white;
+  }
+
+  .profile-select:focus {
+    border-color: #2d5a27;
+    outline: none;
+  }
+
+  .health-section {
+    padding-bottom: 0.75rem;
+  }
+
+  .health-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+
+  .health-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .health-ok {
+    color: #27ae60;
+    font-weight: 600;
+    margin: 0;
+    font-size: 0.9375rem;
+  }
+
+  .health-issues {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .health-issue {
+    display: flex;
+    gap: 0.625rem;
+    padding: 0.625rem;
+    border-radius: 8px;
+    align-items: flex-start;
+  }
+
+  .issue-overdue {
+    background: #fdf0f0;
+    border-left: 3px solid #e74c3c;
+  }
+
+  .issue-pending {
+    background: #fffbf0;
+    border-left: 3px solid #f0c040;
+  }
+
+  .issue-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+
+  .issue-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .issue-purpose {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #333;
+  }
+
+  .issue-product {
+    font-size: 0.8125rem;
+    color: #666;
+    font-style: italic;
+  }
+
+  .issue-due {
+    font-size: 0.75rem;
+    color: #888;
   }
 </style>

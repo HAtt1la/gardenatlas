@@ -28,7 +28,8 @@ src/
   main.js              # SW registration, Svelte mount
   App.svelte           # routing shell + SW update detection
   lib/
-    db.js              # ALL database logic
+    db.js              # ALL database logic + care profile seed
+    health.js          # health engine — derives status from rules + events
     stores.js          # shared reactive state
     i18n.js            # translations (EN/HU)
     sampleData.js      # first-launch seed data
@@ -52,42 +53,62 @@ Everything that touches IndexedDB lives here. No component should import Dexie d
 
 Structure:
 - **Schema** — `db.version(N).stores(...)` blocks. **Never modify existing blocks.** Add a new `db.version(N+1)` for every schema change.
-- **CRUD** — exported async functions (`addPlant`, `updatePlant`, `deletePlant`, `addEvent`, etc.)
+- **CRUD** — exported async functions (`addPlant`, `updatePlant`, `deletePlant`, `addEvent`, `updateEvent`, `deleteCareProfile`, etc.)
 - **Section helpers** — `getSections`, `saveSections`, `addSectionPlant`, `addPlaceholderPlant`, `convertPlaceholder`, `validateColDecrease`, `applyColDecrease`, `applyColIncrease`, `validateRowDecrease`, `applyRowDecrease`, `applyRowIncrease`
 - **Label helpers** — `isLabelTaken(label, excludeId)` — unique plant label validation
+- **Care profile helpers** — `getCareProfiles`, `getCareProfile`, `getCareRulesForProfile`, `addCareProfile`, `updateCareProfile`, `deleteCareProfile`, `addCareRule`, `updateCareRule`, `deleteCareRule`, `seedCareProfiles`
 - **Forecast** — `calculateNextSpray(plantId)` returns `{ nextDate, status, daysUntil }`
 - **Backup** — `exportData`, `importData`, `shouldShowBackupPrompt`
 
-Current schema version: **1** (reset in the unified section refactor — clean start, no legacy chains).
+Current schema version: **2**.
 
 #### Adding a DB migration
 
 ```js
 // Always add at the END of db.js — never edit existing version blocks
-db.version(2).stores({
-  plants: '++id, name, type, sectionId, color, &label, yourNewIndex',
+db.version(3).stores({
+  plants: '++id, name, type, sectionId, color, &label, profileId, yourNewIndex',
 }).upgrade(tx => {
   // optional data migration
 });
+```
+
+### `src/lib/health.js`
+
+Health engine. Does not touch IndexedDB directly — it calls `db.js` helpers.
+
+```js
+export async function getPlantHealth(plantId)
+// Returns { status: 'good'|'fair'|'poor'|'bad'|null, issues: [...], noProfile: boolean }
+// Derives open care tasks from careRules + events at runtime
+
+export async function getAllPlantHealthStatuses(plants)
+// Batch version → { [plantId]: { status, issueCount } }
+
+export const HEALTH_COLORS
+// { good, fair, poor, bad, none } hex color map
 ```
 
 ### `src/lib/stores.js`
 
 ```js
 export const plants           // writable — full plant array
-export const currentView      // writable — 'map'|'detail'|'settings'|'eventPanel'
+export const currentView      // writable — 'map'|'detail'|'settings'|'careProfiles'|'eventPanel'
 export const selectedPlantId  // writable — id of plant open in detail view
 export const searchQuery      // writable — current search string
 export const activeEventTab   // writable — 'events'|'todos'
 export const toasts           // writable — array of { id, message, type }
 export const plantEvents      // writable — events for selected plant
-export const plantForecast    // writable — forecast for selected plant
+export const plantForecast    // writable — spray forecast for selected plant
+export const plantHealth      // writable — health result { status, issues, noProfile }
 
-export async function loadPlants()          // refreshes $plants from DB
+export async function loadPlants()              // refreshes $plants from DB
 export function navigateToMap()
 export function navigateToSettings()
+export function navigateToCareProfiles()
 export function navigateToMultiEvent()
-export function showToast(msg, type)        // brief notification
+export function navigateToTodos()
+export function showToast(msg, type)            // brief notification
 ```
 
 Components call `loadPlants()` after any write to keep the map in sync.
@@ -155,7 +176,7 @@ For each section the map:
 5. Iterates plants: placeholder cards (dashed) or real plant cards
 6. Wire lines: `{#if sec.showWires && col === 0}` SVG `<line>` per row
 
-Plant card layers (bottom to top): background rect → status dot → photo (if any) → gradient fade → name text.
+Plant card layers (bottom to top): background rect → status dot (health system color) → photo (if any) → gradient fade → name text.
 
 ### Plant labels (sorszám)
 
@@ -188,6 +209,31 @@ npm run lint
 ```
 
 ESLint flat config. Fix all warnings before opening a PR — the `pr-check.yml` CI workflow runs lint + build and will fail on errors.
+
+---
+
+## Care Profiles
+
+Care profiles are the knowledge base for plant health. Each plant can have one profile assigned via `plant.profileId`.
+
+### Structure
+
+- **`careProfiles`** — named rule sets (`{ id, name, description, isBuiltin }`)
+- **`careRules`** — individual rules per profile:
+  - `trigger`: `'season'` | `'event:flowering'` | `'event:sickness'` | `'event:pruned'`
+  - `triggerMonths`: array of months 1–12 (only for `'season'` trigger)
+  - `action`: `'spray'` | `'prune'` | `'water'`
+  - `purpose`: human-readable reason
+  - `product`: optional product name
+  - `windowDays`: window for action to satisfy the rule (sickness rules never expire by time)
+
+### Built-in profiles
+
+`seedCareProfiles()` in `db.js` inserts 7 profiles on first run (idempotent — skips if they already exist). Built-in profiles have `isBuiltin: true` and cannot be deleted.
+
+### UI
+
+`CareProfiles.svelte` provides the full CRUD interface (navigated to from Settings). Accessible via `navigateToCareProfiles()`.
 
 ---
 
