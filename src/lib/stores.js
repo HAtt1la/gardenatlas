@@ -49,10 +49,10 @@ export const searchResults = derived(
   ([$plants, $query]) => {
     if (!$query.trim()) return [];
     const q = $query.toLowerCase().trim();
-    return $plants.filter(p => 
+    return $plants.filter(p =>
       p.id.toString() === q ||
-      p.name.toLowerCase().includes(q) ||
-      p.type.toLowerCase().includes(q)
+      (p.label && p.label.toLowerCase().includes(q)) ||
+      p.name.toLowerCase().includes(q)
     );
   }
 );

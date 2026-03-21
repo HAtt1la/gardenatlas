@@ -1,49 +1,37 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { plants, navigateToPlant, loadPlants, showToast } from '../lib/stores.js';
-  import { calculateNextSpray, getPlantsInBed, getSections, saveSections, validateColDecrease, applyColDecrease, applyColIncrease, validateRowDecrease, applyRowDecrease, applyRowIncrease, getMainPhotosForPlants } from '../lib/db.js';
-  import { SECTION_BY_TYPE } from '../sections/index.js';
+  import { calculateAllSprayStatuses, getSections, saveSections, validateColDecrease, applyColDecrease, applyColIncrease, validateRowDecrease, applyRowDecrease, applyRowIncrease, getMainPhotosForPlants } from '../lib/db.js';
   import { t } from '../lib/i18n.js';
   import AddPlantInline from './AddPlantInline.svelte';
   import SectionSheet from './SectionSheet.svelte';
 
-  let plantStatuses = {};
-  let bedPlants = {};
-  let plantThumbs = {};
-
-  let sections = [];
-  let sheetSection = null;
-
-  // Convert form state
-  let convertingPlant = null;
-
+  const CARD_W = 52;
+  const CARD_H = 60;
+  const ROW_GAP = 10;
+  const WIRE_COLOR = '#8d6e63';
   const GARDEN_WIDTH = 360;
 
-  // Reactive plants map: sectionId → array of plants for that section
+  let plantStatuses = {};
+  let plantThumbs = {};
+  let sections = [];
+  let sheetSection = null;
+  let convertingPlant = null;
+
   $: sectionPlantsMap = (() => {
     const map = {};
     for (const sec of sections) {
-      if (sec.type === 'bed') {
-        map[sec.instanceId] = $plants.filter(p => p.type === 'bed');
-      } else {
-        const ps = $plants
-          .filter(p => p.sectionId === sec.instanceId)
-          .sort((a, b) => (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id));
-        const cols = sec.cols ?? 1;
-        map[sec.instanceId] = sec.rows != null ? ps.slice(0, sec.rows * cols) : ps;
-      }
+      const ps = $plants
+        .filter(p => p.sectionId === sec.instanceId)
+        .sort((a, b) => (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id));
+      const cols = sec.cols ?? 1;
+      map[sec.instanceId] = sec.rows != null ? ps.slice(0, sec.rows * cols) : ps;
     }
     return map;
   })();
 
-  function sectionH(count, cols, cardH, rowGap) {
-    return 28 + Math.max(1, Math.ceil(count / cols)) * (cardH + rowGap);
-  }
-
-  function effectiveCols(sec) {
-    const d = SECTION_BY_TYPE[sec.type];
-    if (d.isBedSection) return 3;
-    return sec.cols ?? d.defaultCols ?? 1;
+  function sectionH(count, cols) {
+    return 28 + Math.max(1, Math.ceil(count / cols)) * (CARD_H + ROW_GAP);
   }
 
   $: sectionYs = (() => {
@@ -51,9 +39,8 @@
     let y = 20;
     for (const sec of sections) {
       ys.push(y);
-      const d = SECTION_BY_TYPE[sec.type];
       const ps = sectionPlantsMap[sec.instanceId] ?? [];
-      y += sectionH(ps.length, effectiveCols(sec), d.cardH, d.rowGap) + 20;
+      y += sectionH(ps.length, sec.cols ?? 1) + 20;
     }
     return ys;
   })();
@@ -62,15 +49,13 @@
     if (sections.length === 0) return 800;
     const last = sections.length - 1;
     const sec = sections[last];
-    const d = SECTION_BY_TYPE[sec.type];
     const ps = sectionPlantsMap[sec.instanceId] ?? [];
-    return sectionYs[last] + sectionH(ps.length, effectiveCols(sec), d.cardH, d.rowGap) + 20;
+    return sectionYs[last] + sectionH(ps.length, sec.cols ?? 1) + 20;
   })();
 
   $: convertingRowSize = (() => {
     if (!convertingPlant) return null;
-    const type = convertingPlant.placeholderFor;
-    const sec = sections.find(s => s.type === type);
+    const sec = sections.find(s => s.instanceId === convertingPlant.sectionId);
     const cols = sec?.cols ?? 1;
     const ps = sec ? (sectionPlantsMap[sec.instanceId] ?? []) : [];
     const idx = ps.findIndex(p => p.id === convertingPlant.id);
@@ -81,37 +66,17 @@
 
   onMount(async () => {
     sections = await getSections();
-    for (const plant of $plants) {
-      const forecast = await calculateNextSpray(plant.id);
-      if (forecast) plantStatuses[plant.id] = forecast.status;
-    }
-    plantStatuses = { ...plantStatuses };
-    await loadBedPlants();
+    plantStatuses = await calculateAllSprayStatuses($plants);
     await loadThumbnails();
   });
 
   $: if ($plants.length > 0) {
     updateStatuses();
-    loadBedPlants();
     loadThumbnails();
   }
 
   async function updateStatuses() {
-    const newStatuses = {};
-    for (const plant of $plants) {
-      const forecast = await calculateNextSpray(plant.id);
-      if (forecast) newStatuses[plant.id] = forecast.status;
-    }
-    plantStatuses = newStatuses;
-  }
-
-  async function loadBedPlants() {
-    const newBedPlants = {};
-    for (const bed of $plants.filter(p => p.type === 'bed')) {
-      const ps = await getPlantsInBed(bed.id);
-      newBedPlants[bed.id] = ps.slice(0, 6);
-    }
-    bedPlants = { ...newBedPlants };
+    plantStatuses = await calculateAllSprayStatuses($plants);
   }
 
   async function loadThumbnails() {
@@ -169,13 +134,13 @@
 
   async function handleColChange(newCols) {
     const sec = sheetSection;
-    const oldCols = sec.cols ?? SECTION_BY_TYPE[sec.type].defaultCols;
+    const oldCols = sec.cols ?? 1;
     if (newCols < oldCols) {
       const v = await validateColDecrease(sec.instanceId, oldCols, newCols);
       if (!v.ok) return v;
       await applyColDecrease(sec.instanceId, oldCols, newCols);
     } else {
-      await applyColIncrease(sec.instanceId, sec.type, oldCols, newCols);
+      await applyColIncrease(sec.instanceId, oldCols, newCols);
     }
     sheetSection = { ...sheetSection, cols: newCols };
     await loadPlants();
@@ -184,14 +149,14 @@
 
   async function handleRowChange(newRows) {
     const sec = sheetSection;
-    const oldRows = sec.rows ?? SECTION_BY_TYPE[sec.type].defaultRows ?? 1;
-    const cols = sec.cols ?? SECTION_BY_TYPE[sec.type].defaultCols ?? 1;
+    const oldRows = sec.rows ?? 1;
+    const cols = sec.cols ?? 1;
     if (newRows < oldRows) {
       const v = await validateRowDecrease(sec.instanceId, cols, oldRows, newRows);
       if (!v.ok) return v;
       await applyRowDecrease(sec.instanceId, cols, oldRows, newRows);
     } else {
-      await applyRowIncrease(sec.instanceId, sec.type, cols, newRows, oldRows);
+      await applyRowIncrease(sec.instanceId, cols, newRows, oldRows);
     }
     sheetSection = { ...sheetSection, rows: newRows };
     await loadPlants();
@@ -216,8 +181,6 @@
           convertMode={true}
           placeholderPlant={convertingPlant}
           rowSize={convertingRowSize}
-          plantEmojis={SECTION_BY_TYPE[convertingPlant.placeholderFor]?.emojis}
-          plantColors={SECTION_BY_TYPE[convertingPlant.placeholderFor]?.colors}
           onSuccess={handleConvertCancel}
         />
       </div>
@@ -227,7 +190,6 @@
   {#if sheetSection}
     <SectionSheet
       section={sheetSection}
-      descriptor={SECTION_BY_TYPE[sheetSection.type]}
       onClose={() => sheetSection = null}
       onSave={handleSheetSave}
       onColChange={handleColChange}
@@ -236,17 +198,29 @@
   {/if}
 
   <svg viewBox="0 0 {GARDEN_WIDTH} {dynamicHeight}" class="garden-svg">
+    <defs>
+      <linearGradient id="label-fade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="white" stop-opacity="0" />
+        <stop offset="100%" stop-color="white" stop-opacity="0.88" />
+      </linearGradient>
+    </defs>
     <!-- Background -->
     <rect x="0" y="0" width={GARDEN_WIDTH} height={dynamicHeight} fill="#eef6ee" />
 
     {#each sections as sec, secIdx}
-      {@const d = SECTION_BY_TYPE[sec.type]}
       {@const ps = sectionPlantsMap[sec.instanceId] ?? []}
       {@const secY = sectionYs[secIdx] ?? 0}
+      {@const cols = sec.cols ?? 1}
+      {@const step = (GARDEN_WIDTH - 8) / cols}
+      {@const x0 = 4 + step / 2}
 
       {#if secIdx > 0}
         <line x1="0" y1={secY - 8} x2={GARDEN_WIDTH} y2={secY - 8} stroke="#b2d8b2" stroke-width="1.5" stroke-dasharray="5,4" />
       {/if}
+
+      <!-- Section background -->
+      {@const secH = sectionH(ps.length, cols)}
+      <rect x="0" y={secY} width={GARDEN_WIDTH} height={secH} fill={sec.color ?? '#a8d5a2'} opacity="0.12" />
 
       <!-- Section label - tap to edit -->
       <g class="section-label-btn"
@@ -254,24 +228,56 @@
         on:keydown={(e) => e.key === 'Enter' && (sheetSection = sec)}
         role="button" tabindex="0">
         <rect x="0" y={secY} width={GARDEN_WIDTH * 0.75} height="22" rx="0" fill="transparent" />
-        <text x="6" y={secY + 14} class="section-label">{d.icon} {$t(sec.name)}</text>
+        <text x="6" y={secY + 14} class="section-label">{sec.name}</text>
       </g>
 
-      <svelte:component this={d.Renderer}
-        section={sec}
-        descriptor={d}
-        plants={ps}
-        {secY}
-        gardenWidth={GARDEN_WIDTH}
-        {plantStatuses}
-        {plantThumbs}
-        {bedPlants}
-        onPlantClick={handlePlantClick}
-        onPlaceholderClick={handlePlaceholderClick}
-        {getStatusColor}
-        {colorToTint}
-        tLabel={$t}
-      />
+      {#each ps as plant, i}
+        {@const col = i % cols}
+        {@const row = Math.floor(i / cols)}
+        {@const cx = x0 + col * step}
+        {@const ty = secY + 28 + row * (CARD_H + ROW_GAP)}
+        {#if sec.showWires && col === 0}
+          <line x1="4" y1={ty + CARD_H/2} x2={GARDEN_WIDTH - 4} y2={ty + CARD_H/2}
+            stroke={WIRE_COLOR} stroke-width="1.5" opacity="0.3" />
+        {/if}
+        {#if plant.type === 'placeholder'}
+          <g class="plant-marker placeholder-marker"
+            on:click={(e) => handlePlaceholderClick(plant, e)}
+            on:keydown={(e) => e.key === 'Enter' && handlePlaceholderClick(plant, e)}
+            role="button" tabindex="0">
+            <rect x={cx - CARD_W/2} y={ty} width={CARD_W} height={CARD_H} rx="7" fill="rgba(200,200,200,0.15)" stroke="#bbb" stroke-width="1" stroke-dasharray="4,3" />
+            <text x={cx} y={ty + CARD_H * 0.55} class="placeholder-label">{$t('placeholderLabel')}</text>
+          </g>
+        {:else}
+          {@const sc = getStatusColor(plant.id)}
+          {@const bg = colorToTint(plant.color)}
+          <g class="plant-marker"
+            on:click={(e) => handlePlantClick(plant, e)}
+            on:keydown={(e) => e.key === 'Enter' && handlePlantClick(plant, e)}
+            role="button" tabindex="0">
+            <rect x={cx - CARD_W/2} y={ty} width={CARD_W} height={CARD_H} rx="7" fill={bg} stroke="#ccc" stroke-width="0.5" class="card-bg" />
+            <rect x={cx + CARD_W/2 - 12} y={ty + 3} width="10" height="10" rx="3" fill={sc} class="status-dot" />
+            {#if plantThumbs[plant.id]}
+              <defs>
+                <clipPath id="card-clip-{plant.id}">
+                  <rect x={cx - CARD_W/2} y={ty} width={CARD_W} height={CARD_H - 14} rx="7" />
+                </clipPath>
+              </defs>
+              <image
+                href={plantThumbs[plant.id]}
+                x={cx - CARD_W/2} y={ty}
+                width={CARD_W} height={CARD_H - 14}
+                preserveAspectRatio="xMidYMid slice"
+                clip-path="url(#card-clip-{plant.id})"
+                class="card-photo" />
+            {/if}
+            <rect x={cx - CARD_W/2 + 1} y={ty + CARD_H - 16} width={CARD_W - 2} height="15" rx="0" fill="url(#label-fade)" />
+            <text x={cx} y={ty + CARD_H - 4} class="card-label"
+              textLength={plant.name.length > 6 ? CARD_W - 6 : null}
+              lengthAdjust="spacingAndGlyphs">{plant.name}</text>
+          </g>
+        {/if}
+      {/each}
     {/each}
   </svg>
 
@@ -311,6 +317,25 @@
   .section-label-btn:hover .section-label {
     fill: #4a7c43;
     text-decoration: underline;
+  }
+
+  .plant-marker { cursor: pointer; }
+  .plant-marker:hover .card-bg { filter: brightness(0.93); }
+  .plant-marker:focus { outline: none; }
+  .plant-marker:focus .card-bg { stroke: #2d5a27; stroke-width: 2; }
+  .placeholder-marker { cursor: pointer; opacity: 0.7; }
+  .placeholder-marker:hover { opacity: 1; }
+  .placeholder-label { font-size: 20px; text-anchor: middle; dominant-baseline: middle; fill: #aaa; font-weight: 700; pointer-events: none; }
+  .card-photo { pointer-events: none; }
+  .card-label { font-size: 10px; text-anchor: middle; dominant-baseline: auto; fill: #111; font-weight: 700; pointer-events: none; }
+
+  @media (prefers-color-scheme: dark) {
+    .garden-svg { filter: none; }
+    .card-label { fill: #111 !important; }
+    .section-label { fill: #2d5a27 !important; }
+    .placeholder-label { fill: #aaa !important; }
+    .legend { background: #1e1e1e; border-color: #333; }
+    .legend-item { color: #ccc; }
   }
 
   /* Legend */

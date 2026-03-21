@@ -2,19 +2,21 @@
   import { onMount } from 'svelte';
   import GardenMap from './components/GardenMap.svelte';
   import PlantDetail from './components/PlantDetail.svelte';
-  import BedDetail from './components/BedDetail.svelte';
   import Settings from './components/Settings.svelte';
   import MultiEventForm from './components/MultiEventForm.svelte';
   import TodoList from './components/TodoList.svelte';
   import SearchBar from './components/SearchBar.svelte';
   import Toast from './components/Toast.svelte';
   import BackupBanner from './components/BackupBanner.svelte';
-  import { currentView, loadPlants, navigateToMap, navigateToSettings, navigateToMultiEvent, toasts, selectedPlant, activeEventTab } from './lib/stores.js';
+  import UpdateBanner from './components/UpdateBanner.svelte';
+  import { currentView, loadPlants, navigateToMap, navigateToSettings, navigateToMultiEvent, toasts, activeEventTab } from './lib/stores.js';
   import { initializeSampleData } from './lib/sampleData.js';
   import { migratePlantSectionIds, shouldShowBackupPrompt } from './lib/db.js';
   import { t } from './lib/i18n.js';
 
   let showBackupBanner = false;
+  let showUpdateBanner = false;
+  let waitingSW = null;
 
   onMount(async () => {
     await initializeSampleData();
@@ -22,10 +24,39 @@
     const migrated = await migratePlantSectionIds();
     if (migrated) await loadPlants();
     showBackupBanner = await shouldShowBackupPrompt();
+
+    // Detect waiting service worker
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        const checkWaiting = (r) => {
+          if (r.waiting) {
+            waitingSW = r.waiting;
+            showUpdateBanner = true;
+          }
+        };
+        checkWaiting(reg);
+        reg.addEventListener('updatefound', () => {
+          const newSW = reg.installing;
+          newSW?.addEventListener('statechange', () => {
+            if (newSW.state === 'installed') checkWaiting(reg);
+          });
+        });
+      }
+    }
   });
 
-  // Determine if current plant is a bed
-  $: isBedView = $currentView === 'detail' && $selectedPlant?.type === 'bed';
+  function handleUpdate() {
+    if (!waitingSW) return;
+    waitingSW.postMessage('SKIP_WAITING');
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
+    }, { once: true });
+  }
+
+  function handleUpdateDismiss() {
+    showUpdateBanner = false;
+  }
 </script>
 
 <div class="app">
@@ -53,6 +84,11 @@
     </div>
   </header>
 
+  <!-- Update Banner -->
+  {#if showUpdateBanner}
+    <UpdateBanner onUpdate={handleUpdate} onDismiss={handleUpdateDismiss} />
+  {/if}
+
   <!-- Backup Banner -->
   {#if showBackupBanner}
     <BackupBanner onDismiss={() => showBackupBanner = false} />
@@ -63,11 +99,7 @@
     {#if $currentView === 'map'}
       <GardenMap />
     {:else if $currentView === 'detail'}
-      {#if isBedView}
-        <BedDetail />
-      {:else}
-        <PlantDetail />
-      {/if}
+      <PlantDetail />
     {:else if $currentView === 'settings'}
       <Settings />
     {:else if $currentView === 'eventPanel'}

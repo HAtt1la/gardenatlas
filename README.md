@@ -1,6 +1,6 @@
 # GardenAtlas
 
-An offline-first Progressive Web App for garden management. Track plants, log care events, forecast spray schedules, and visualize your garden layout - all stored locally, no account needed.
+An offline-first Progressive Web App for garden management. Track plants, log care events, forecast spray schedules, and visualize your garden layout — all stored locally, no account needed.
 
 **Live app**: [HAtt1la.github.io/gardenatlas](https://hatt1la.github.io/gardenatlas/)
 
@@ -8,18 +8,19 @@ An offline-first Progressive Web App for garden management. Track plants, log ca
 
 ## Features
 
-- **Garden map** - SVG top-down view of all sections; tap a plant to open its detail
-- **Modular sections** - add multiple instances of any section type (fruit trees, grapevines, raspberries, raised beds, herbs & flowers); each section is independently configurable
-- **One-step plant adding** - tap the section name to open the section sheet, then add a plant directly
-- **Spray forecasting** - calculates next spray date from last event; status dot on each card (green / orange / red)
-- **Event timeline** - log flowering, spraying, pruning, fertilizing, harvesting, planting per plant
-- **Bulk events** - add an event to many plants at once (e.g. spray the whole garden)
-- **Photos** - up to 3 compressed photos per plant stored in IndexedDB
-- **Todo list** - task tracker with priority scoring and dependency chains
-- **Export / import** - full JSON backup; auto-backup reminder after 30 days
-- **Offline** - service worker caches the app shell; works without internet after first load
-- **PWA** - installable on Android home screen
-- **English / Hungarian** - language switch in Settings
+- **Garden map** — SVG top-down view of all sections; tap a plant card to open its detail
+- **Unified sections** — add any number of sections, each fully configurable (name, columns, rows, color, wire lines)
+- **Plant labels (sorszám)** — each plant has an editable label for physical garden markers; searchable
+- **Spray forecasting** — calculates next spray date from last event; status dot on each card (green / orange / red)
+- **Event timeline** — log flowering, spraying, pruning, harvesting, planting per plant
+- **Bulk events** — add an event to many plants at once (e.g. spray the whole garden)
+- **Photos** — up to 3 compressed photos per plant stored in IndexedDB; photo replaces color fallback on card
+- **Todo list** — task tracker with dependency chains
+- **Export / import** — full JSON backup; auto-backup reminder
+- **Update prompt** — notified when a new version is available; choose when to apply it
+- **Offline** — service worker caches the app shell; works without internet after first load
+- **PWA** — installable on Android / iOS home screen
+- **English / Hungarian** — language switch in Settings
 
 ---
 
@@ -47,47 +48,35 @@ npm run dev -- --host
 ```
 src/
   main.js                     # entry point, SW registration
-  App.svelte                  # app shell, routing
+  App.svelte                  # app shell, routing, update detection
   lib/
-    db.js                     # Dexie/IndexedDB - all CRUD, migrations, forecasts
+    db.js                     # Dexie/IndexedDB — all CRUD, migrations, forecasts
     stores.js                 # Svelte reactive stores
     i18n.js                   # EN/HU translations
     sampleData.js             # seed data for first launch
   components/
-    GardenMap.svelte          # SVG map, section rendering loop
-    SectionSheet.svelte       # bottom sheet for section editing + plant adding
-    AddPlantInline.svelte     # reusable plant-add form (convert placeholder mode)
-    PlantDetail.svelte        # plant detail view
-    BedDetail.svelte          # raised-bed detail with plant list
+    GardenMap.svelte          # SVG map, inlined section + plant card renderer
+    SectionSheet.svelte       # bottom sheet: section config + add plant
+    AddPlantInline.svelte     # convert-placeholder form
+    PlantDetail.svelte        # plant detail view (events, photos, edit, label)
     EventForm.svelte          # single-plant event form
     MultiEventForm.svelte     # bulk event form
     Settings.svelte           # settings, export/import, section management
-    SearchBar.svelte          # plant search
+    SearchBar.svelte          # plant search (name + label)
     TodoList.svelte           # todo tracker
     Toast.svelte              # toast notifications
-  sections/                   # ← modular section system
-    index.js                  # registry: imports all descriptors + renderers
-    fruit/
-      descriptor.js
-      Renderer.svelte
-    grape/
-      descriptor.js
-      Renderer.svelte
-    raspberry/
-      descriptor.js           # uses FruitRenderer (aliased in index.js)
-    bed/
-      descriptor.js
-      Renderer.svelte
-    other/
-      descriptor.js           # uses FruitRenderer (aliased in index.js)
+    BackupBanner.svelte       # backup reminder banner
+    UpdateBanner.svelte       # PWA update prompt banner
+    PhotoGallery.svelte       # photo management UI
 public/
   sw.js                       # service worker
   manifest.json               # PWA manifest
+  icon.svg / icon-192.png / icon-512.png
 docs/
   architecture.md             # system architecture reference
   contributor/
     technical-guide.md        # codebase internals for contributors
-    adding-sections.md        # step-by-step: add a new section type
+    adding-sections.md        # ← REMOVED (sections unified, no longer extensible by type)
   user/
     user-guide.md             # end-user documentation
 ```
@@ -99,9 +88,8 @@ docs/
 | Document | Audience |
 |----------|----------|
 | [Architecture](docs/architecture.md) | Overview of system design |
-| [Technical Guide](docs/contributor/technical-guide.md) | Contributors - codebase internals |
-| [Adding Sections](docs/contributor/adding-sections.md) | Contributors - how to add a new section type |
-| [User Guide](docs/user/user-guide.md) | End users - how to use the app |
+| [Technical Guide](docs/contributor/technical-guide.md) | Contributors — codebase internals |
+| [User Guide](docs/user/user-guide.md) | End users — how to use the app |
 
 ---
 
@@ -119,26 +107,27 @@ docs/
 
 ---
 
-## Database Schema (v8)
+## Database Schema (v1)
 
 | Table | Key fields |
 |-------|------------|
-| `plants` | `id`, `name`, `type`, `sectionId`, `emoji`, `color`, `bedId` |
+| `plants` | `id`, `name`, `type`, `sectionId`, `color`, `label` |
 | `events` | `id`, `plantId`, `eventType`, `date`, `modifiedAt` |
 | `settings` | `key` (key-value store) |
 | `photos` | `id`, `plantId`, `isMain` (blob) |
+| `todos` | `id`, `createdAt`, `doneAt` |
 
-Schema changes always add a new `db.version(N+1)` block - never modify existing versions.
+Plant `type` is always `'plant'` or `'placeholder'`. Schema was reset to v1 in the unified section refactor.
 
 ---
 
 ## Versioning
 
-Follows semver. Current version: **1.2.1**
+Follows semver. Current version: **1.3.0**
 
-- **PATCH** - bug fixes, UI tweaks
-- **MINOR** - new user-visible features
-- **MAJOR** - significant redesigns or breaking data migrations
+- **PATCH** — bug fixes, UI tweaks
+- **MINOR** — new user-visible features
+- **MAJOR** — significant redesigns or breaking data migrations
 
 ---
 

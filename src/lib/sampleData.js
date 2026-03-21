@@ -1,121 +1,79 @@
 import { db, getAllPlants } from './db.js';
 
-// Sample plant data based on the architecture plan:
-// - 4 grape rows × 5 grapevines = 20 grapes
-// - 3 raised beds
-// - 24 fruit trees (4 rows × 6)
-
 const SAMPLE_PLANTS = [
-  // Fruit Trees (5 rows × 5 = 25 trees)
-  // Row 1
-  { id: 1, name: 'Apple 1', type: 'fruit', sectionId: 'fruit-1', row: null, x: 30, y: 50, notes: 'Golden Delicious', emoji: '🍎' },
-  { id: 2, name: 'Apple 2', type: 'fruit', sectionId: 'fruit-1', row: null, x: 100, y: 50, notes: 'Red Chief', emoji: '🍎' },
-  { id: 3, name: 'Pear 1', type: 'fruit', sectionId: 'fruit-1', row: null, x: 170, y: 50, notes: 'Conference', emoji: '🍐' },
-  { id: 4, name: 'Pear 2', type: 'fruit', sectionId: 'fruit-1', row: null, x: 240, y: 50, notes: 'Williams', emoji: '🍐' },
-  { id: 5, name: 'Cherry', type: 'fruit', sectionId: 'fruit-1', row: null, x: 310, y: 50, notes: 'Sweet cherry', emoji: '🍒' },
-  // Row 2
-  { id: 6, name: 'Plum 1', type: 'fruit', sectionId: 'fruit-1', row: null, x: 30, y: 110, notes: 'Stanley', emoji: '🍑' },
-  { id: 7, name: 'Plum 2', type: 'fruit', sectionId: 'fruit-1', row: null, x: 100, y: 110, notes: 'Bluefree', emoji: '🍑' },
-  { id: 8, name: 'Apricot', type: 'fruit', sectionId: 'fruit-1', row: null, x: 170, y: 110, notes: 'Hungarian', emoji: '🍊' },
-  { id: 9, name: 'Peach', type: 'fruit', sectionId: 'fruit-1', row: null, x: 240, y: 110, notes: 'Redhaven', emoji: '🍑' },
-  { id: 10, name: 'Walnut', type: 'fruit', sectionId: 'fruit-1', row: null, x: 310, y: 110, notes: 'Large tree', emoji: '🥜' },
-  // Row 3
-  { id: 11, name: 'Quince', type: 'fruit', sectionId: 'fruit-1', row: null, x: 30, y: 170, notes: 'Aromatic', emoji: '🍐' },
-  { id: 12, name: 'Almond', type: 'fruit', sectionId: 'fruit-1', row: null, x: 100, y: 170, notes: 'Valencia', emoji: '🥜' },
-  { id: 13, name: 'Fig', type: 'fruit', sectionId: 'fruit-1', row: null, x: 170, y: 170, notes: 'Brown Turkey', emoji: '🫐' },
-  { id: 14, name: 'Mulberry', type: 'fruit', sectionId: 'fruit-1', row: null, x: 240, y: 170, notes: 'White Mulberry', emoji: '🫐' },
-  { id: 15, name: 'Medlar', type: 'fruit', sectionId: 'fruit-1', row: null, x: 310, y: 170, notes: 'Common Medlar', emoji: '🍊' },
-  // Row 4
-  { id: 16, name: 'Pomegranate', type: 'fruit', sectionId: 'fruit-1', row: null, x: 30, y: 230, notes: 'Punica', emoji: '🍎' },
-  { id: 17, name: 'Kiwi', type: 'fruit', sectionId: 'fruit-1', row: null, x: 100, y: 230, notes: 'Hardy Kiwi', emoji: '🥝' },
-  { id: 18, name: 'Elderberry', type: 'fruit', sectionId: 'fruit-1', row: null, x: 170, y: 230, notes: 'Black Elder', emoji: '🫐' },
-  { id: 19, name: 'Hazelnut', type: 'fruit', sectionId: 'fruit-1', row: null, x: 240, y: 230, notes: 'European', emoji: '🥜' },
-  { id: 20, name: 'Chestnut', type: 'fruit', sectionId: 'fruit-1', row: null, x: 310, y: 230, notes: 'Sweet Chestnut', emoji: '🌰' },
-  // Row 4 (last row)
-  { id: 21, name: 'Ash Tree', type: 'fruit', sectionId: 'fruit-1', row: null, x: 30, y: 280, notes: 'Ornamental', emoji: '🌳' },
-  { id: 22, name: 'Maple', type: 'fruit', sectionId: 'fruit-1', row: null, x: 100, y: 280, notes: 'Sugar Maple', emoji: '🍂' },
-  { id: 23, name: 'Oak', type: 'fruit', sectionId: 'fruit-1', row: null, x: 170, y: 280, notes: 'White Oak', emoji: '🌳' },
-  { id: 24, name: 'Birch', type: 'fruit', sectionId: 'fruit-1', row: null, x: 240, y: 280, notes: 'Silver Birch', emoji: '🌳' },
+  // Fruit Trees — section-1 (6 cols)
+  { id: 1,  name: 'Apple 1',     label: '1',  type: 'plant', sectionId: 'section-1', color: '#a8d5a2', notes: 'Golden Delicious' },
+  { id: 2,  name: 'Apple 2',     label: '2',  type: 'plant', sectionId: 'section-1', color: '#a8d5a2', notes: 'Red Chief' },
+  { id: 3,  name: 'Pear 1',      label: '3',  type: 'plant', sectionId: 'section-1', color: '#a8d5a2', notes: 'Conference' },
+  { id: 4,  name: 'Pear 2',      label: '4',  type: 'plant', sectionId: 'section-1', color: '#a8d5a2', notes: 'Williams' },
+  { id: 5,  name: 'Cherry',      label: '5',  type: 'plant', sectionId: 'section-1', color: '#e07a8e', notes: 'Sweet cherry' },
+  { id: 6,  name: 'Plum 1',      label: '6',  type: 'plant', sectionId: 'section-1', color: '#8e44ad', notes: 'Stanley' },
+  { id: 7,  name: 'Plum 2',      label: '7',  type: 'plant', sectionId: 'section-1', color: '#8e44ad', notes: 'Bluefree' },
+  { id: 8,  name: 'Apricot',     label: '8',  type: 'plant', sectionId: 'section-1', color: '#e67e22', notes: 'Hungarian' },
+  { id: 9,  name: 'Peach',       label: '9',  type: 'plant', sectionId: 'section-1', color: '#e67e22', notes: 'Redhaven' },
+  { id: 10, name: 'Walnut',      label: '10', type: 'plant', sectionId: 'section-1', color: '#8b5e3c', notes: 'Large tree' },
+  { id: 11, name: 'Quince',      label: '11', type: 'plant', sectionId: 'section-1', color: '#f0c040', notes: 'Aromatic' },
+  { id: 12, name: 'Almond',      label: '12', type: 'plant', sectionId: 'section-1', color: '#8b5e3c', notes: 'Valencia' },
 
-  // Raised Beds (3 beds, wider)
-  { id: 26, name: 'Bed A', type: 'bed', row: null, x: 70, notes: 'Tomatoes, peppers' },
-  { id: 27, name: 'Bed B', type: 'bed', row: null, x: 200, notes: 'Cucumbers, zucchini, herbs' },
-  { id: 48, name: 'Bed C', type: 'bed', row: null, x: 330, notes: 'Salad, spinach, radish' },
+  // Grapevines — section-2 (5 cols × 4 rows), with wires
+  { id: 20, name: 'Vine 1-1', label: '20', type: 'plant', sectionId: 'section-2', color: '#8e44ad' },
+  { id: 21, name: 'Vine 1-2', label: '21', type: 'plant', sectionId: 'section-2', color: '#8e44ad' },
+  { id: 22, name: 'Vine 1-3', label: '22', type: 'plant', sectionId: 'section-2', color: '#8e44ad' },
+  { id: 23, name: 'Vine 1-4', label: '23', type: 'plant', sectionId: 'section-2', color: '#8e44ad' },
+  { id: 24, name: 'Vine 1-5', label: '24', type: 'plant', sectionId: 'section-2', color: '#8e44ad' },
+  { id: 25, name: 'Vine 2-1', label: '25', type: 'plant', sectionId: 'section-2', color: '#6aaa2a' },
+  { id: 26, name: 'Vine 2-2', label: '26', type: 'plant', sectionId: 'section-2', color: '#6aaa2a' },
+  { id: 27, name: 'Vine 2-3', label: '27', type: 'plant', sectionId: 'section-2', color: '#6aaa2a' },
+  { id: 28, name: 'Vine 2-4', label: '28', type: 'plant', sectionId: 'section-2', color: '#6aaa2a' },
+  { id: 29, name: 'Vine 2-5', label: '29', type: 'plant', sectionId: 'section-2', color: '#6aaa2a' },
+  { id: 30, name: 'Vine 3-1', label: '30', type: 'plant', sectionId: 'section-2', color: '#c0392b' },
+  { id: 31, name: 'Vine 3-2', label: '31', type: 'plant', sectionId: 'section-2', color: '#c0392b' },
+  { id: 32, name: 'Vine 3-3', label: '32', type: 'plant', sectionId: 'section-2', color: '#c0392b' },
+  { id: 33, name: 'Vine 3-4', label: '33', type: 'plant', sectionId: 'section-2', color: '#c0392b' },
+  { id: 34, name: 'Vine 3-5', label: '34', type: 'plant', sectionId: 'section-2', color: '#c0392b' },
+  { id: 35, name: 'Vine 4-1', label: '35', type: 'plant', sectionId: 'section-2', color: '#8e44ad' },
+  { id: 36, name: 'Vine 4-2', label: '36', type: 'plant', sectionId: 'section-2', color: '#6aaa2a' },
+  { id: 37, name: 'Vine 4-3', label: '37', type: 'plant', sectionId: 'section-2', color: '#c0392b' },
+  { id: 38, name: 'Vine 4-4', label: '38', type: 'plant', sectionId: 'section-2', color: '#8e44ad' },
+  { id: 39, name: 'Vine 4-5', label: '39', type: 'plant', sectionId: 'section-2', color: '#6aaa2a' },
 
-  // Grapevines (4 rows × 5 = 20 vines)
-  // Row 1 - Purple grapes
-  { id: 28, name: 'Vine 1-1', type: 'grape', sectionId: 'grape-1', row: 1, x: 50, emoji: '🍇', color: '#8e44ad', notes: null },
-  { id: 29, name: 'Vine 1-2', type: 'grape', sectionId: 'grape-1', row: 1, x: 125, emoji: '🍇', color: '#8e44ad', notes: null },
-  { id: 30, name: 'Vine 1-3', type: 'grape', sectionId: 'grape-1', row: 1, x: 200, emoji: '🍇', color: '#8e44ad', notes: null },
-  { id: 31, name: 'Vine 1-4', type: 'grape', sectionId: 'grape-1', row: 1, x: 275, emoji: '🍇', color: '#8e44ad', notes: null },
-  { id: 32, name: 'Vine 1-5', type: 'grape', sectionId: 'grape-1', row: 1, x: 350, emoji: '🍇', color: '#8e44ad', notes: null },
-  // Row 2 - Green grapes
-  { id: 33, name: 'Vine 2-1', type: 'grape', sectionId: 'grape-1', row: 2, x: 50, emoji: '🍇', color: '#6aaa2a', notes: null },
-  { id: 34, name: 'Vine 2-2', type: 'grape', sectionId: 'grape-1', row: 2, x: 125, emoji: '🍇', color: '#6aaa2a', notes: null },
-  { id: 35, name: 'Vine 2-3', type: 'grape', sectionId: 'grape-1', row: 2, x: 200, emoji: '🍇', color: '#6aaa2a', notes: null },
-  { id: 36, name: 'Vine 2-4', type: 'grape', sectionId: 'grape-1', row: 2, x: 275, emoji: '🍇', color: '#6aaa2a', notes: null },
-  { id: 37, name: 'Vine 2-5', type: 'grape', sectionId: 'grape-1', row: 2, x: 350, emoji: '🍇', color: '#6aaa2a', notes: null },
-  // Row 3 - Red grapes
-  { id: 38, name: 'Vine 3-1', type: 'grape', sectionId: 'grape-1', row: 3, x: 50, emoji: '🍇', color: '#c0392b', notes: null },
-  { id: 39, name: 'Vine 3-2', type: 'grape', sectionId: 'grape-1', row: 3, x: 125, emoji: '🍇', color: '#c0392b', notes: null },
-  { id: 40, name: 'Vine 3-3', type: 'grape', sectionId: 'grape-1', row: 3, x: 200, emoji: '🍇', color: '#c0392b', notes: null },
-  { id: 41, name: 'Vine 3-4', type: 'grape', sectionId: 'grape-1', row: 3, x: 275, emoji: '🍇', color: '#c0392b', notes: null },
-  { id: 42, name: 'Vine 3-5', type: 'grape', sectionId: 'grape-1', row: 3, x: 350, emoji: '🍇', color: '#c0392b', notes: null },
-  // Row 4 - Mixed colors
-  { id: 43, name: 'Vine 4-1', type: 'grape', sectionId: 'grape-1', row: 4, x: 50, emoji: '🍇', color: '#8e44ad', notes: null },
-  { id: 44, name: 'Vine 4-2', type: 'grape', sectionId: 'grape-1', row: 4, x: 125, emoji: '🍇', color: '#6aaa2a', notes: null },
-  { id: 45, name: 'Vine 4-3', type: 'grape', sectionId: 'grape-1', row: 4, x: 200, emoji: '🍇', color: '#c0392b', notes: null },
-  { id: 46, name: 'Vine 4-4', type: 'grape', sectionId: 'grape-1', row: 4, x: 275, emoji: '🍇', color: '#8e44ad', notes: null },
-  { id: 47, name: 'Vine 4-5', type: 'grape', sectionId: 'grape-1', row: 4, x: 350, emoji: '🍇', color: '#6aaa2a', notes: null },
+  // Raspberries — section-3 (4 cols)
+  { id: 40, name: 'Raspberry 1', label: '40', type: 'plant', sectionId: 'section-3', color: '#c0392b', notes: 'Autumn Bliss' },
+  { id: 41, name: 'Raspberry 2', label: '41', type: 'plant', sectionId: 'section-3', color: '#c0392b', notes: 'Glen Ample' },
+  { id: 42, name: 'Raspberry 3', label: '42', type: 'plant', sectionId: 'section-3', color: '#f0c040', notes: 'All Gold' },
+  { id: 43, name: 'Raspberry 4', label: '43', type: 'plant', sectionId: 'section-3', color: '#e07a8e', notes: 'Polka' },
 
-  // Raspberries (1 horizontal line - 3 varieties)
-  { id: 49, name: 'Raspberry 1', type: 'raspberry', sectionId: 'raspberry-1', row: 1, x: 60, emoji: '🍓', color: '#c0392b', notes: 'Autumn Bliss - red' },
-  { id: 50, name: 'Raspberry 2', type: 'raspberry', sectionId: 'raspberry-1', row: 1, x: 200, emoji: '🍓', color: '#c0392b', notes: 'Glen Ample - red summer' },
-  { id: 51, name: 'Raspberry 3', type: 'raspberry', sectionId: 'raspberry-1', row: 1, x: 340, emoji: '🍓', color: '#f0c040', notes: 'All Gold - yellow' },
-  { id: 52, name: 'Raspberry 4', type: 'raspberry', sectionId: 'raspberry-1', row: 1, x: 340, emoji: '🍓', color: '#e07a8e', notes: 'Polka - pink' },
+  // Raised Beds — section-4 (3 cols)
+  { id: 50, name: 'Bed A', label: '50', type: 'plant', sectionId: 'section-4', color: '#8b5e3c', notes: 'Tomatoes, peppers' },
+  { id: 51, name: 'Bed B', label: '51', type: 'plant', sectionId: 'section-4', color: '#8b5e3c', notes: 'Cucumbers, herbs' },
+  { id: 52, name: 'Bed C', label: '52', type: 'plant', sectionId: 'section-4', color: '#8b5e3c', notes: 'Salad, spinach' },
+
+  // Other Plants — section-5 (5 cols)
+  { id: 60, name: 'Lavender',  label: '60', type: 'plant', sectionId: 'section-5', color: '#8e44ad' },
+  { id: 61, name: 'Rosemary',  label: '61', type: 'plant', sectionId: 'section-5', color: '#27ae60' },
+  { id: 62, name: 'Basil',     label: '62', type: 'plant', sectionId: 'section-5', color: '#6aaa2a' },
+  { id: 63, name: 'Mint',      label: '63', type: 'plant', sectionId: 'section-5', color: '#16a085' },
+  { id: 64, name: 'Thyme',     label: '64', type: 'plant', sectionId: 'section-5', color: '#27ae60' },
 ];
 
-// Sample events for demonstration
 const SAMPLE_EVENTS = [
-  // Some spray events
-  { plantId: 1, eventType: 'spray', date: '2026-01-15', notes: 'Winter spray' },
-  { plantId: 2, eventType: 'spray', date: '2026-01-15', notes: 'Winter spray' },
-  { plantId: 3, eventType: 'spray', date: '2026-01-20', notes: 'Dormant oil' },
-  { plantId: 5, eventType: 'spray', date: '2025-12-20', notes: 'Overdue test' },
-  
-  // Grape sprays
-  { plantId: 28, eventType: 'spray', date: '2026-01-28', notes: 'Fungicide' },
-  { plantId: 29, eventType: 'spray', date: '2026-01-28', notes: 'Fungicide' },
-  { plantId: 30, eventType: 'spray', date: '2026-02-01', notes: 'Recent spray' },
-  
-  // Planting events
-  { plantId: 1, eventType: 'planted', date: '2018-03-15', notes: 'Original planting' },
-  { plantId: 26, eventType: 'planted', date: '2023-04-01', notes: 'Built raised bed A' },
-  
-  // Pruning
-  { plantId: 1, eventType: 'pruned', date: '2026-01-10', notes: 'Winter pruning' },
-  { plantId: 28, eventType: 'pruned', date: '2026-01-05', notes: 'Spur pruning' },
+  { plantId: 1,  eventType: 'spray',   date: '2026-01-15', notes: 'Winter spray' },
+  { plantId: 2,  eventType: 'spray',   date: '2026-01-15', notes: 'Winter spray' },
+  { plantId: 3,  eventType: 'spray',   date: '2026-01-20', notes: 'Dormant oil' },
+  { plantId: 5,  eventType: 'spray',   date: '2025-12-20', notes: 'Overdue test' },
+  { plantId: 20, eventType: 'spray',   date: '2026-01-28', notes: 'Fungicide' },
+  { plantId: 21, eventType: 'spray',   date: '2026-01-28', notes: 'Fungicide' },
+  { plantId: 22, eventType: 'spray',   date: '2026-02-01', notes: 'Recent spray' },
+  { plantId: 1,  eventType: 'planted', date: '2018-03-15', notes: 'Original planting' },
+  { plantId: 50, eventType: 'planted', date: '2023-04-01', notes: 'Built raised bed A' },
+  { plantId: 1,  eventType: 'pruned',  date: '2026-01-10', notes: 'Winter pruning' },
+  { plantId: 20, eventType: 'pruned',  date: '2026-01-05', notes: 'Spur pruning' },
 ];
 
 export async function initializeSampleData() {
-  // Check if data already exists
   const existingPlants = await getAllPlants();
-  if (existingPlants.length > 0) {
-    console.log('Database already has data, skipping initialization');
-    return;
-  }
+  if (existingPlants.length > 0) return;
 
-  console.log('Initializing sample data...');
-  
-  // Add plants
   await db.plants.bulkAdd(SAMPLE_PLANTS);
-  
-  // Add events with timestamps
-  const eventsWithTimestamps = SAMPLE_EVENTS.map(event => ({
-    ...event,
-    modifiedAt: new Date().toISOString()
-  }));
-  await db.events.bulkAdd(eventsWithTimestamps);
-
-  console.log(`Initialized with ${SAMPLE_PLANTS.length} plants and ${SAMPLE_EVENTS.length} events`);
+  await db.events.bulkAdd(SAMPLE_EVENTS.map(e => ({ ...e, modifiedAt: new Date().toISOString() })));
 }
