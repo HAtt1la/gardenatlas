@@ -1,6 +1,8 @@
 <script>
+  import { onMount } from 'svelte';
   import { plants, loadPlants, showToast, navigateToMap } from '../lib/stores.js';
-  import { addEvent, EVENT_TYPES } from '../lib/db.js';
+  import { addEvent, EVENT_TYPES, getSections } from '../lib/db.js';
+  import { SECTION_BY_TYPE } from '../sections/index.js';
   import { t } from '../lib/i18n.js';
 
   let eventType = 'spray';
@@ -8,60 +10,53 @@
   let notes = '';
   let selectedPlantIds = new Set();
   let isSubmitting = false;
-  let expandedSections = {
-    fruit: false,
-    bed: false,
-    grape: false,
-    other: false
-  };
+  let expandedSections = {};
+  let sections = [];
 
-  // Define sections
-  const sections = [
-    { id: 'fruit', label: 'Fruit Trees', icon: '🌳', type: 'fruit' },
-    { id: 'bed', label: 'Raised Beds', icon: '🥬', type: 'bed' },
-    { id: 'grape', label: 'Grapevines', icon: '🍇', type: 'grape' },
-    { id: 'other', label: 'Herbs & Flowers', icon: '🌿', type: 'other' }
-  ];
+  onMount(async () => {
+    sections = await getSections();
+  });
 
-  // Group plants by type
-  $: plantsByType = {
-    fruit: $plants.filter(p => p.type === 'fruit'),
-    bed: $plants.filter(p => p.type === 'bed'),
-    grape: $plants.filter(p => p.type === 'grape'),
-    other: $plants.filter(p => p.type === 'other')
-  };
+  // Group plants by sectionId, matching the map's rendering order
+  $: plantsBySectionId = (() => {
+    const map = {};
+    for (const p of $plants) {
+      if (p.type === 'placeholder') continue;
+      const key = p.sectionId ?? p.type;
+      if (!map[key]) map[key] = [];
+      map[key].push(p);
+    }
+    return map;
+  })();
 
-  // Check if entire section is selected
-  $: sectionSelected = {
-    fruit: plantsByType.fruit.length > 0 && plantsByType.fruit.every(p => selectedPlantIds.has(p.id)),
-    bed: plantsByType.bed.length > 0 && plantsByType.bed.every(p => selectedPlantIds.has(p.id)),
-    grape: plantsByType.grape.length > 0 && plantsByType.grape.every(p => selectedPlantIds.has(p.id)),
-    other: plantsByType.other.length > 0 && plantsByType.other.every(p => selectedPlantIds.has(p.id))
-  };
+  // Sections that have at least one plant, in map order
+  $: activeSections = sections.filter(s => (plantsBySectionId[s.instanceId]?.length ?? 0) > 0);
 
-  // Check if section is partially selected
-  $: sectionPartial = {
-    fruit: plantsByType.fruit.some(p => selectedPlantIds.has(p.id)) && !sectionSelected.fruit,
-    bed: plantsByType.bed.some(p => selectedPlantIds.has(p.id)) && !sectionSelected.bed,
-    grape: plantsByType.grape.some(p => selectedPlantIds.has(p.id)) && !sectionSelected.grape,
-    other: plantsByType.other.some(p => selectedPlantIds.has(p.id)) && !sectionSelected.other
-  };
+  $: sectionSelected = Object.fromEntries(
+    activeSections.map(s => {
+      const ps = plantsBySectionId[s.instanceId] ?? [];
+      return [s.instanceId, ps.length > 0 && ps.every(p => selectedPlantIds.has(p.id))];
+    })
+  );
+
+  $: sectionPartial = Object.fromEntries(
+    activeSections.map(s => {
+      const ps = plantsBySectionId[s.instanceId] ?? [];
+      return [s.instanceId, ps.some(p => selectedPlantIds.has(p.id)) && !sectionSelected[s.instanceId]];
+    })
+  );
 
   $: canSubmit = selectedPlantIds.size > 0 && eventType && date;
 
-  function selectSection(sectionId, event) {
+  function selectSection(instanceId, event) {
     event.stopPropagation();
-    const plantsInSection = plantsByType[sectionId];
-    
-    if (sectionSelected[sectionId]) {
-      // Deselect all plants in this section
-      plantsInSection.forEach(p => selectedPlantIds.delete(p.id));
+    const ps = plantsBySectionId[instanceId] ?? [];
+    if (sectionSelected[instanceId]) {
+      ps.forEach(p => selectedPlantIds.delete(p.id));
     } else {
-      // Select all plants in this section
-      plantsInSection.forEach(p => selectedPlantIds.add(p.id));
+      ps.forEach(p => selectedPlantIds.add(p.id));
     }
-    
-    selectedPlantIds = new Set(selectedPlantIds); // Trigger reactivity by cloning
+    selectedPlantIds = new Set(selectedPlantIds);
   }
 
   function togglePlant(plantId) {
@@ -70,17 +65,17 @@
     } else {
       selectedPlantIds.add(plantId);
     }
-    selectedPlantIds = new Set(selectedPlantIds); // Trigger reactivity by cloning
+    selectedPlantIds = new Set(selectedPlantIds);
   }
 
-  function toggleSectionExpanded(sectionId, event) {
+  function toggleSectionExpanded(instanceId, event) {
     event.stopPropagation();
-    expandedSections[sectionId] = !expandedSections[sectionId];
-    expandedSections = { ...expandedSections }; // Trigger reactivity
+    expandedSections[instanceId] = !expandedSections[instanceId];
+    expandedSections = { ...expandedSections };
   }
 
   function selectAll() {
-    selectedPlantIds = new Set($plants.map(p => p.id));
+    selectedPlantIds = new Set($plants.filter(p => p.type !== 'placeholder').map(p => p.id));
   }
 
   function deselectAll() {
@@ -89,20 +84,13 @@
 
   async function handleSubmit() {
     if (!canSubmit) return;
-
     isSubmitting = true;
     try {
       let successCount = 0;
       for (const plantId of selectedPlantIds) {
-        await addEvent({
-          plantId,
-          eventType,
-          date,
-          notes: notes.trim() || null
-        });
+        await addEvent({ plantId, eventType, date, notes: notes.trim() || null });
         successCount++;
       }
-
       await loadPlants();
       showToast(`Event added to ${successCount} plant${successCount !== 1 ? 's' : ''}`, 'success');
       navigateToMap();
@@ -142,10 +130,10 @@
     <!-- Notes -->
     <div class="form-group">
       <label for="notes">Notes (optional)</label>
-      <textarea 
-        id="notes" 
-        bind:value={notes} 
-        rows="3" 
+      <textarea
+        id="notes"
+        bind:value={notes}
+        rows="3"
         placeholder="Add any notes about this event..."
       ></textarea>
     </div>
@@ -153,9 +141,9 @@
     <!-- Plant Selection by Section -->
     <div class="form-group">
       <div class="plants-header">
-        <span>Select Plants ({selectedPlantIds.size}/{$plants.length})</span>
+        <span>Select Plants ({selectedPlantIds.size}/{$plants.filter(p => p.type !== 'placeholder').length})</span>
       </div>
-      
+
       <!-- Quick Actions -->
       <div class="quick-actions">
         <button type="button" class="quick-btn" on:click={selectAll}>
@@ -168,59 +156,57 @@
 
       <!-- Sections -->
       <div class="sections-list">
-        {#each sections as section}
-          {@const sectionPlants = plantsByType[section.id]}
-          {#if sectionPlants.length > 0}
-            <div class="section-group">
-              <!-- Section Header -->
-              <div class="section-header">
-                <input
-                  type="checkbox"
-                  checked={sectionSelected[section.id]}
-                  indeterminate={sectionPartial[section.id]}
-                  on:click={(e) => selectSection(section.id, e)}
-                  aria-label={`Toggle ${section.label}`}
-                />
-                <span class="section-icon">{section.icon}</span>
-                <span class="section-name">{section.label}</span>
-                <span class="section-count">{sectionPlants.length}</span>
-                <button
-                  type="button"
-                  class="expand-btn"
-                  on:click={(e) => toggleSectionExpanded(section.id, e)}
-                  aria-label={`${expandedSections[section.id] ? 'Collapse' : 'Expand'} ${section.label}`}
-                >
-                  <span class="expand-icon">
-                    {expandedSections[section.id] ? '▼' : '▶'}
-                  </span>
-                </button>
-              </div>
-
-              <!-- Section Plants (Collapsible) -->
-              {#if expandedSections[section.id]}
-                <div class="plants-in-section">
-                  {#each sectionPlants as plant (plant.id)}
-                    <div class="plant-item">
-                      <input
-                        type="checkbox"
-                        id="plant-{plant.id}"
-                        checked={selectedPlantIds.has(plant.id)}
-                        on:change={() => togglePlant(plant.id)}
-                      />
-                      <label for="plant-{plant.id}" class="plant-label">
-                        <span class="plant-emoji">{plant.emoji || '🌿'}</span>
-                        <span class="plant-name">{plant.name}</span>
-                        <span class="plant-type">#{plant.id}</span>
-                      </label>
-                    </div>
-                  {/each}
-                </div>
-              {/if}
+        {#each activeSections as sec}
+          {@const d = SECTION_BY_TYPE[sec.type]}
+          {@const sectionPlants = plantsBySectionId[sec.instanceId] ?? []}
+          <div class="section-group">
+            <!-- Section Header -->
+            <div class="section-header">
+              <input
+                type="checkbox"
+                checked={sectionSelected[sec.instanceId]}
+                indeterminate={sectionPartial[sec.instanceId]}
+                on:click={(e) => selectSection(sec.instanceId, e)}
+                aria-label={`Toggle ${$t(sec.name)}`}
+              />
+              <span class="section-icon">{d.icon}</span>
+              <span class="section-name">{$t(sec.name)}</span>
+              <span class="section-count">{sectionPlants.length}</span>
+              <button
+                type="button"
+                class="expand-btn"
+                on:click={(e) => toggleSectionExpanded(sec.instanceId, e)}
+                aria-label={`${expandedSections[sec.instanceId] ? 'Collapse' : 'Expand'} ${$t(sec.name)}`}
+              >
+                <span class="expand-icon">
+                  {expandedSections[sec.instanceId] ? '▼' : '▶'}
+                </span>
+              </button>
             </div>
-          {/if}
+
+            <!-- Section Plants (Collapsible) -->
+            {#if expandedSections[sec.instanceId]}
+              <div class="plants-in-section">
+                {#each sectionPlants as plant (plant.id)}
+                  <div class="plant-item">
+                    <input
+                      type="checkbox"
+                      id="plant-{plant.id}"
+                      checked={selectedPlantIds.has(plant.id)}
+                      on:change={() => togglePlant(plant.id)}
+                    />
+                    <label for="plant-{plant.id}" class="plant-label">
+                      <span class="plant-emoji">{plant.emoji || d.icon}</span>
+                      <span class="plant-name">{plant.name}</span>
+                    </label>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
         {/each}
 
-        {#if $plants.length === 0}
+        {#if activeSections.length === 0}
           <div class="no-results">
             No plants available
           </div>
@@ -453,12 +439,6 @@
   .plant-name {
     font-weight: 500;
     color: #333;
-  }
-
-  .plant-type {
-    font-size: 0.75rem;
-    color: #999;
-    margin-left: auto;
   }
 
   .no-results {

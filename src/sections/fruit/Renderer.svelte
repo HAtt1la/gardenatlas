@@ -9,6 +9,7 @@
   export let getStatusColor;
   export let colorToTint;
   export let tLabel;
+  export let plantThumbs = {};
 
   $: cols = section.cols ?? 1;
   $: step = (gardenWidth - 8) / cols;
@@ -37,7 +38,22 @@
       role="button" tabindex="0">
       <rect x={cx - descriptor.cardW/2} y={ty} width={descriptor.cardW} height={descriptor.cardH} rx="7" fill={bg} stroke="#ccc" stroke-width="0.5" class="card-bg" />
       <rect x={cx + descriptor.cardW/2 - 12} y={ty + 3} width="10" height="10" rx="3" fill={sc} class="status-dot" />
-      <text x={cx} y={ty + descriptor.cardH * 0.45} class="card-emoji">{plant.emoji || descriptor.icon}</text>
+      {#if plantThumbs[plant.id]}
+        <defs>
+          <clipPath id="card-clip-{plant.id}">
+            <rect x={cx - descriptor.cardW/2} y={ty} width={descriptor.cardW} height={descriptor.cardH - 14} rx="7" />
+          </clipPath>
+        </defs>
+        <image
+          href={plantThumbs[plant.id]}
+          x={cx - descriptor.cardW/2} y={ty}
+          width={descriptor.cardW} height={descriptor.cardH - 14}
+          preserveAspectRatio="xMidYMid slice"
+          clip-path="url(#card-clip-{plant.id})"
+          class="card-photo" />
+      {:else}
+        <text x={cx} y={ty + descriptor.cardH * 0.45} class="card-emoji">{plant.emoji || descriptor.icon}</text>
+      {/if}
       <text x={cx} y={ty + descriptor.cardH - 8} class="card-label"
         textLength={plant.name.length > 6 ? descriptor.cardW - 6 : null}
         lengthAdjust="spacingAndGlyphs">{plant.name}</text>
@@ -54,5 +70,6 @@
   .placeholder-marker:hover { opacity: 1; }
   .placeholder-label { font-size: 20px; text-anchor: middle; dominant-baseline: middle; fill: #aaa; font-weight: 700; pointer-events: none; }
   .card-emoji { font-size: 26px; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+  .card-photo { pointer-events: none; }
   .card-label { font-size: 10px; text-anchor: middle; dominant-baseline: auto; fill: #111; font-weight: 700; pointer-events: none; }
 </style>

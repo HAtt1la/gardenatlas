@@ -8,4 +8,11 @@ export default {
   minCols: null, maxCols: null, minRows: null, maxRows: null,
   isBedSection: true,
   wireColor: null,
+  defaultSprayDays: null,
+  labels: {
+    en: { section: 'Raised Beds', type: 'Raised Bed' },
+    hu: { section: 'Magaságyások', type: 'Magaságyás' },
+  },
+  emojis: [],
+  colors: [],
 };
