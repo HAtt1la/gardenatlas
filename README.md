@@ -134,7 +134,7 @@ Schema changes always add a new `db.version(N+1)` block - never modify existing 
 
 ## Versioning
 
-Follows semver. Current version: **1.2.0**
+Follows semver. Current version: **1.2.1**
 
 - **PATCH** - bug fixes, UI tweaks
 - **MINOR** - new user-visible features
