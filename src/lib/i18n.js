@@ -48,20 +48,12 @@ const translations = {
     noEvents: 'No events recorded yet',
     noNotesRecorded: 'No notes recorded',
     
-    // Bed Detail
-    bedLayout: 'Bed Layout (Top View)',
-    bedNotes: 'Bed Notes',
-    addPlantToBed: 'Add Plant to Bed',
-    bedFull: 'Bed Full',
-    treeIcon: 'Tree Icon',
-    vineColor: 'Vine Color',
-    plantColor: 'Plant Color',
-    amount: 'Amount',
-    exampleBedPlants: 'e.g., Tomato, Basil, Pepper...',
-    exampleOtherPlants: 'e.g., Rose, Lavender...',
-    
-    // Plant types — injected from section descriptors at runtime
-    // (fruit, grape, raspberry, bed, other, shrub, etc.)
+    plantColor: 'Card Color',
+    plantLabel: 'Sorszám',
+    plantLabelPlaceholder: 'e.g. 42 or A1',
+    labelTaken: 'This label is already in use',
+    sectionColor: 'Section Color',
+    showWires: 'Show Row Wires',
 
     // Add Plant Form
     plantName: 'Plant Name',
@@ -88,9 +80,18 @@ const translations = {
     eventType: 'Event Type',
     date: 'Date',
     eventNotes: 'Notes',
+    optional: 'optional',
+    addNotesPlaceholder: 'Add any notes...',
+    saving: 'Saving...',
+    saveEvent: 'Save Event',
     cancel: 'Cancel',
     save: 'Save',
     delete: 'Delete',
+    confirmDeleteEvent: 'Delete this event?',
+
+    // Danger Zone
+    dangerZone: 'Danger Zone',
+    plantNotFound: 'Plant not found',
     
     // Search
     searchPlaceholder: 'Search by ID, name, or type...',
@@ -119,9 +120,11 @@ const translations = {
     aboutApp: 'About GardenAtlas',
     aboutDesc: 'GardenAtlas is a progressive web app for managing your garden. Track plants, record events, and get spray reminders.',
     version: 'Version',
+    installTip: 'Tip: Add this app to your home screen for quick access!',
     
     // Toast messages
     settingsSaved: 'Settings saved',
+    plantUpdated: 'Plant updated',
     dataExported: 'Data exported successfully',
     exportFailed: 'Export failed',
     dataImported: 'Data imported successfully',
@@ -156,6 +159,11 @@ const translations = {
     backupBannerDownload: 'Download backup',
     backupBannerLater: 'Later',
 
+    // Update banner
+    updateAvailable: 'A new version is available',
+    updateNow: 'Update now',
+    updateLater: 'Later',
+
     // Garden Layout
     gardenLayout: 'Garden Layout',
     gardenLayoutDesc: 'Customize columns and rows for each section',
@@ -188,6 +196,17 @@ const translations = {
     editSection: 'Edit section',
     colsLabel: 'Columns',
     rowsLabel: 'Rows',
+    columnPosition: 'Column position (1–{n}, leave blank = current)',
+    columnPositionHint: 'Leave blank to keep current position',
+
+    // Multi-event form
+    multiEventTitle: 'Add Event to Multiple Plants',
+    selectPlants: 'Select Plants',
+    selectAll: 'Select All',
+    clearSelection: 'Clear Selection',
+    noPlantsAvailable: 'No plants available',
+    selectAtLeastOne: 'Please select at least one plant or section',
+    addEventFailed: 'Failed to add event',
 
     // Todo list
     todoTab: 'Tasks',
@@ -212,7 +231,7 @@ const translations = {
     todoUnblocks: 'unblocks {n}',
     todoEditDoneDate: 'Edit completion date',
   },
-  
+
   hu: {
     // App
     appName: 'KertAtlasz',
@@ -250,20 +269,12 @@ const translations = {
     noEvents: 'Még nincsenek rögzített események',
     noNotesRecorded: 'Nincsenek jegyzet',
     
-    // Bed Detail
-    bedLayout: 'Ágy elrendezése (felülnézet)',
-    bedNotes: 'Ágy jegyzetei',
-    addPlantToBed: 'Növény hozzáadása az ágyhoz',
-    bedFull: 'Ágy megtelt',
-    treeIcon: 'Fa ikon',
-    vineColor: 'Szőlő szín',
-    plantColor: 'Növény szín',
-    amount: 'Mennyiség',
-    exampleBedPlants: 'pl. Paradicsom, Bazsalikom, Paprika...',
-    exampleOtherPlants: 'pl. Rózsa, Levanda...',
-    
-    // Plant types — injected from section descriptors at runtime
-    // (fruit, grape, raspberry, bed, other, shrub, etc.)
+    plantColor: 'Kártya szín',
+    plantLabel: 'Sorszám',
+    plantLabelPlaceholder: 'pl. 42 vagy A1',
+    labelTaken: 'Ez a sorszám már foglalt',
+    sectionColor: 'Részleg szín',
+    showWires: 'Sorok jelölése',
 
     // Add Plant Form
     plantName: 'Növény neve',
@@ -290,9 +301,18 @@ const translations = {
     eventType: 'Esemény típusa',
     date: 'Dátum',
     eventNotes: 'Jegyzetek',
+    optional: 'opcionális',
+    addNotesPlaceholder: 'Megjegyzések...',
+    saving: 'Mentés...',
+    saveEvent: 'Esemény mentése',
     cancel: 'Mégse',
     save: 'Mentés',
     delete: 'Törlés',
+    confirmDeleteEvent: 'Törlöd ezt az eseményt?',
+
+    // Danger Zone
+    dangerZone: 'Veszélyzóna',
+    plantNotFound: 'Növény nem található',
     
     // Search
     searchPlaceholder: 'Keresés azonosító, név vagy típus alapján...',
@@ -321,9 +341,11 @@ const translations = {
     aboutApp: 'A KertAtlasz névjegye',
     aboutDesc: 'A KertAtlasz egy progresszív webalkalmazás a kerted kezeléséhez. Kövesd nyomon a növényeket, rögzíts eseményeket és kapj permetezési emlékeztetőket.',
     version: 'Verzió',
+    installTip: 'Tipp: Add hozzá ezt az alkalmazást a kezdőképernyődre a gyors hozzáféréshez!',
     
     // Toast messages
     settingsSaved: 'Beállítások mentve',
+    plantUpdated: 'Növény frissítve',
     dataExported: 'Adatok sikeresen exportálva',
     exportFailed: 'Exportálás sikertelen',
     dataImported: 'Adatok sikeresen importálva',
@@ -358,6 +380,11 @@ const translations = {
     backupBannerDownload: 'Mentés letöltése',
     backupBannerLater: 'Később',
 
+    // Update banner
+    updateAvailable: 'Új verzió érhető el',
+    updateNow: 'Frissítés most',
+    updateLater: 'Később',
+
     // Garden Layout
     gardenLayout: 'Kert elrendezése',
     gardenLayoutDesc: 'Oszlopok és sorok testreszabása minden szakaszhoz',
@@ -390,6 +417,17 @@ const translations = {
     editSection: 'Részleg szerkesztése',
     colsLabel: 'Oszlopok',
     rowsLabel: 'Sorok',
+    columnPosition: 'Oszlop pozíció (1–{n}, üresen hagyva = jelenlegi)',
+    columnPositionHint: 'Hagyd üresen a jelenlegi pozíció megtartásához',
+
+    // Multi-event form
+    multiEventTitle: 'Esemény hozzáadása több növényhez',
+    selectPlants: 'Növények kiválasztása',
+    selectAll: 'Összes kijelölése',
+    clearSelection: 'Kijelölés törlése',
+    noPlantsAvailable: 'Nincs elérhető növény',
+    selectAtLeastOne: 'Válassz ki legalább egy növényt vagy részleget',
+    addEventFailed: 'Nem sikerült hozzáadni az eseményt',
 
     // Todo list
     todoTab: 'Feladatok',
@@ -435,11 +473,4 @@ export const t = derived(currentLanguage, ($currentLanguage) => {
 // Helper function to change language
 export function setLanguage(lang) {
   currentLanguage.set(lang);
-}
-
-// Called by src/sections/index.js at module load to inject section-owned keys
-export function injectTranslations(map) {
-  for (const [lang, keys] of Object.entries(map)) {
-    if (translations[lang]) Object.assign(translations[lang], keys);
-  }
 }

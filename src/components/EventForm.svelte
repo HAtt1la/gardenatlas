@@ -38,7 +38,7 @@
 
 <form class="event-form" on:submit|preventDefault={handleSubmit}>
   <div class="form-group">
-    <label for="eventType">Event Type</label>
+    <label for="eventType">{$t('eventType')}</label>
     <select id="eventType" bind:value={eventType}>
       {#each EVENT_TYPES as type}
         <option value={type.id}>{type.icon} {$t(type.label)}</option>
@@ -47,21 +47,21 @@
   </div>
 
   <div class="form-group">
-    <label for="date">Date</label>
+    <label for="date">{$t('date')}</label>
     <input type="date" id="date" bind:value={date} required />
   </div>
 
   <div class="form-group">
-    <label for="notes">Notes (optional)</label>
-    <textarea id="notes" bind:value={notes} rows="2" placeholder="Add any notes..."></textarea>
+    <label for="notes">{$t('eventNotes')} ({$t('optional')})</label>
+    <textarea id="notes" bind:value={notes} rows="2" placeholder="{$t('addNotesPlaceholder')}"></textarea>
   </div>
 
   <div class="form-actions">
     <button type="button" class="btn btn-secondary" on:click={handleCancel}>
-      Cancel
+      {$t('cancel')}
     </button>
     <button type="submit" class="btn btn-primary" disabled={isSubmitting}>
-      {isSubmitting ? 'Saving...' : 'Save Event'}
+      {isSubmitting ? $t('saving') : $t('saveEvent')}
     </button>
   </div>
 </form>

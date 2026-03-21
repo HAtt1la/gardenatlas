@@ -8,15 +8,14 @@ const ASSETS_TO_CACHE = [
   '/gardenatlas/icon-512.png'
 ];
 
-// Install event - cache app shell
+// Install event - cache app shell, but do NOT skip waiting
+// (user will be prompted to update via the app UI)
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Caching app shell');
         return cache.addAll(ASSETS_TO_CACHE);
       })
-      .then(() => self.skipWaiting())
   );
 });
 
@@ -31,6 +30,11 @@ self.addEventListener('activate', (event) => {
       );
     }).then(() => self.clients.claim())
   );
+});
+
+// Allow the app to trigger activation of the waiting SW
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
 // Fetch event

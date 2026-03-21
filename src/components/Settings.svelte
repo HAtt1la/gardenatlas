@@ -1,27 +1,24 @@
 <script>
   import { showToast, loadPlants } from '../lib/stores.js';
-  import { exportData, importData, getSetting, setSetting, DEFAULT_INTERVALS, recordBackupDone, getSections, saveSections } from '../lib/db.js';
-  import { SECTION_REGISTRY, SECTION_BY_TYPE } from '../sections/index.js';
+  import { exportData, importData, getSetting, setSetting, DEFAULT_SPRAY_DAYS, recordBackupDone, getSections, saveSections } from '../lib/db.js';
   import { currentLanguage, setLanguage, t } from '../lib/i18n.js';
+  import { version as APP_VERSION } from '../../package.json';
 
-  let sprayIntervals = { ...DEFAULT_INTERVALS };
+  let sprayDays = DEFAULT_SPRAY_DAYS;
   let sections = [];
   let fileInput;
   let isExporting = false;
   let isImporting = false;
 
-  // Load saved intervals and sections
   async function loadSettings() {
     const saved = await getSetting('sprayIntervals');
-    if (saved) {
-      sprayIntervals = { ...DEFAULT_INTERVALS, ...saved };
-    }
+    if (saved && typeof saved === 'number') sprayDays = saved;
     sections = await getSections();
   }
   loadSettings();
 
   async function saveIntervals() {
-    await setSetting('sprayIntervals', sprayIntervals);
+    await setSetting('sprayIntervals', sprayDays);
     showToast($t('settingsSaved'), 'success');
   }
 
@@ -42,14 +39,14 @@
     showToast($t('sectionRemoved'), 'success');
   }
 
-  async function addSection(type) {
-    const d = SECTION_BY_TYPE[type];
+  async function addSection() {
     sections = [...sections, {
-      instanceId: `${type}-${Date.now()}`,
-      type,
-      name: d.defaultName,
-      ...(d.hasCols ? { cols: d.defaultCols } : {}),
-      ...(d.hasRows ? { rows: d.defaultRows } : {}),
+      instanceId: `section-${Date.now()}`,
+      name: 'New Section',
+      cols: 4,
+      rows: 1,
+      color: '#a8d5a2',
+      showWires: false
     }];
     await saveSections(sections);
     showToast($t('sectionAdded'), 'success');
@@ -168,25 +165,23 @@
   <section class="section">
     <h3 class="section-title">{$t('sprayIntervals')}</h3>
     <p class="section-desc">{$t('sprayIntervalsDesc')}</p>
-    
+
     <div class="interval-list">
-      {#each SECTION_REGISTRY.filter(d => d.defaultSprayDays !== null) as d}
-        <div class="interval-item">
-          <label for="{d.type}-interval">{d.icon} {$t(d.defaultName)}</label>
-          <div class="interval-input-wrapper">
-            <input
-              type="number"
-              id="{d.type}-interval"
-              bind:value={sprayIntervals[d.type].spray}
-              min="1"
-              max="365"
-            />
-            <span class="interval-unit">{$t('days')}</span>
-          </div>
+      <div class="interval-item">
+        <label for="default-interval">🌿 Default</label>
+        <div class="interval-input-wrapper">
+          <input
+            type="number"
+            id="default-interval"
+            bind:value={sprayDays}
+            min="1"
+            max="365"
+          />
+          <span class="interval-unit">{$t('days')}</span>
         </div>
-      {/each}
+      </div>
     </div>
-    
+
     <button class="btn btn-primary" on:click={saveIntervals}>
       {$t('saveSettings')}
     </button>
@@ -199,10 +194,9 @@
 
     <div class="section-list">
       {#each sections as sec, i (sec.instanceId)}
-        {@const d = SECTION_BY_TYPE[sec.type]}
         <div class="section-row">
-          <span class="sec-icon">{d.icon}</span>
-          <span class="sec-name">{$t(sec.name)}</span>
+          <span class="sec-color" style="background: {sec.color ?? '#a8d5a2'}"></span>
+          <span class="sec-name">{sec.name}</span>
           <div class="sec-actions">
             <button class="btn-icon-sm" disabled={i === 0} on:click={() => moveSection(i, -1)}>↑</button>
             <button class="btn-icon-sm" disabled={i === sections.length - 1} on:click={() => moveSection(i, 1)}>↓</button>
@@ -212,16 +206,7 @@
       {/each}
     </div>
 
-    <p class="blank-slots-label">{$t('addSection')}</p>
-    <div class="blank-slot-btns">
-      {#each SECTION_REGISTRY as d}
-        <button class="btn btn-secondary btn-small"
-          on:click={() => addSection(d.type)}
-          title={$t(d.defaultName)}>
-          {d.icon}
-        </button>
-      {/each}
-    </div>
+    <button class="btn btn-secondary" on:click={addSection}>+ {$t('addSection')}</button>
   </section>
 
   <!-- Data Management -->
@@ -283,9 +268,9 @@
   <section class="section">
     <h3 class="section-title">{$t('aboutApp')}</h3>
     <div class="about-info">
-      <p><strong>{$t('appName')}</strong> v1.0.0</p>
+      <p><strong>{$t('appName')}</strong> v{APP_VERSION}</p>
       <p>{$t('aboutDesc')}</p>
-      <p class="about-note">💡 {$currentLanguage === 'en' ? 'Tip: Add this app to your home screen for quick access!' : 'Tipp: Add hozzá ezt az alkalmazást a kezdőképernyődre a gyors hozzáféréshez!'}</p>
+      <p class="about-note">💡 {$t('installTip')}</p>
     </div>
   </section>
 </div>
@@ -506,21 +491,11 @@
     margin-top: 1rem !important;
   }
 
-  .blank-slots-label {
-    font-size: 0.875rem;
-    color: #666;
-    margin: 0.75rem 0 0.5rem;
-  }
-
-  .blank-slot-btns {
+  .btn-icon-sm.danger {
     display: flex;
+    flex-direction: column;
     gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  .btn-small {
-    padding: 0.5rem 0.75rem;
-    font-size: 1.25rem;
+    margin-bottom: 1rem;
   }
 
   .section-list {
@@ -539,8 +514,11 @@
     border-radius: 8px;
   }
 
-  .sec-icon {
-    font-size: 1.25rem;
+  .sec-color {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
   }
 
   .sec-name {

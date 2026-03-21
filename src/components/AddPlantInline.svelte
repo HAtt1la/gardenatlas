@@ -1,44 +1,18 @@
 <script>
-  import { addPlant, addPlantToBed, convertPlaceholder } from '../lib/db.js';
+  import { convertPlaceholder } from '../lib/db.js';
   import { loadPlants, showToast } from '../lib/stores.js';
   import { t } from '../lib/i18n.js';
+  import { PLANT_COLORS } from '../lib/constants.js';
 
-  export let bedId = null;
   export let onSuccess = null;
   export let convertMode = false;
   export let placeholderPlant = null;
   export let rowSize = null;
-  export let plantEmojis = [
-    '🌿', '🌱', '🌾', '🌻', '🌺', '🌸', '🌼', '🌷', '🌹', '🏵️',
-    '🥀', '💐', '🎍', '☘️','🌲',
-    '🌳', '🌶️', '🫑', '🧄',
-    '🧅', '🥕', '🥔', '🥒', '🌽', '🥦', '🥬'
-  ];
-  export let plantColors = null; // if provided, overrides PLANT_COLORS
 
-  const ALL_COLORS = [
-    { label: 'Red',       value: '#c0392b' },
-    { label: 'Orange',    value: '#e67e22' },
-    { label: 'Yellow',    value: '#f0c040' },
-    { label: 'Lime',      value: '#6aaa2a' },
-    { label: 'Green',     value: '#27ae60' },
-    { label: 'Teal',      value: '#16a085' },
-    { label: 'Sky',       value: '#2980b9' },
-    { label: 'Lavender',  value: '#8e44ad' },
-    { label: 'Pink',      value: '#e07a8e' },
-    { label: 'Brown',     value: '#8b5e3c' },
-    { label: 'Slate',     value: '#7f8c8d' },
-    { label: 'Gold',      value: '#d4c46e' },
-  ];
-
-  $: PLANT_COLORS = plantColors
-    ? plantColors.map(v => ALL_COLORS.find(c => c.value === v) ?? { label: v, value: v })
-    : ALL_COLORS;
+  const ALL_COLORS = PLANT_COLORS;
 
   let newPlantName = '';
-  let selectedEmoji = plantEmojis[0] ?? '🌿';
-  let selectedColor = (plantColors ?? ['#27ae60'])[0];
-  let newPlantAmount = 1;
+  let selectedColor = '#27ae60';
   let selectedPosition = null;
 
   async function handleAddPlant() {
@@ -52,48 +26,19 @@
         await convertPlaceholder(
           placeholderPlant.id,
           newPlantName.trim(),
-          selectedEmoji,
           selectedColor,
           selectedPosition
         );
-      } else if (bedId) {
-        // Adding to a bed
-        await addPlantToBed(bedId, {
-          name: newPlantName.trim(),
-          emoji: selectedEmoji,
-          color: selectedColor,
-          amount: newPlantAmount,
-          notes: null
-        });
-      } else {
-        // Creating a new "other" plant
-        const newPlant = {
-          name: newPlantName.trim(),
-          type: 'other',
-          emoji: selectedEmoji,
-          color: selectedColor,
-          row: null,
-          x: null,
-          y: null,
-          notes: null
-        };
-        await addPlant(newPlant);
       }
 
       await loadPlants();
       showToast($t('plantAdded'), 'success');
 
-      // Reset form
       newPlantName = '';
-      selectedEmoji = plantEmojis[0] ?? '🌿';
-      selectedColor = (plantColors ?? ['#27ae60'])[0];
-      newPlantAmount = 1;
+      selectedColor = '#27ae60';
       selectedPosition = null;
 
-      // Call callback if provided
-      if (onSuccess) {
-        onSuccess();
-      }
+      if (onSuccess) onSuccess();
     } catch (err) {
       console.error('Failed to add plant:', err);
       showToast($t('addPlantFailed'), 'error');
@@ -102,25 +47,15 @@
 
   function handleCancel() {
     newPlantName = '';
-    selectedEmoji = plantEmojis[0] ?? '🌿';
-    selectedColor = (plantColors ?? ['#27ae60'])[0];
-    newPlantAmount = 1;
+    selectedColor = '#27ae60';
     selectedPosition = null;
-    if (onSuccess) {
-      onSuccess(); // Trigger callback to close form
-    }
+    if (onSuccess) onSuccess();
   }
 </script>
 
 <div class="add-plant-form">
   <h3 class="form-title">
-    {#if convertMode}
-      {$t('convertPlaceholder')}
-    {:else if bedId}
-      {$t('addPlantToBed')}
-    {:else}
-      {$t('addNewPlant')}
-    {/if}
+    {$t('convertPlaceholder')}
   </h3>
 
   <div class="form-group">
@@ -129,59 +64,29 @@
       type="text"
       id="new-plant-name"
       bind:value={newPlantName}
-      placeholder={bedId ? $t('exampleBedPlants') : $t('exampleOtherPlants')}
       class="text-input"
     />
   </div>
 
-  {#if bedId && !convertMode}
-    <div class="form-group">
-      <label for="new-plant-amount">{$t('amount')}</label>
-      <input
-        type="number"
-        id="new-plant-amount"
-        bind:value={newPlantAmount}
-        min="1"
-        max="99"
-        class="text-input"
-      />
-    </div>
-  {/if}
-
   {#if convertMode && rowSize != null && rowSize > 1}
     <div class="form-group">
-      <label for="plant-position">Column position (1–{rowSize}, leave blank = current)</label>
+      <label for="plant-position">{$t('columnPosition', { n: rowSize })}</label>
       <input
         type="number"
         id="plant-position"
         bind:value={selectedPosition}
         min="1"
         max={rowSize}
-        placeholder="Leave blank to keep current position"
+        placeholder={$t('columnPositionHint')}
         class="text-input"
       />
     </div>
   {/if}
 
   <div class="form-group">
-    <div class="form-label">{$t('chooseEmoji')}</div>
-    <div class="emoji-grid">
-      {#each plantEmojis as emoji}
-        <button
-          type="button"
-          class="emoji-button {selectedEmoji === emoji ? 'selected' : ''}"
-          on:click={() => selectedEmoji = emoji}
-        >
-          {emoji}
-        </button>
-      {/each}
-    </div>
-  </div>
-
-  <div class="form-group">
     <div class="form-label">{$t('plantColor')}</div>
     <div class="color-grid">
-      {#each PLANT_COLORS as c}
+      {#each ALL_COLORS as c}
         <button
           type="button"
           class="color-btn {selectedColor === c.value ? 'selected' : ''}"
@@ -195,20 +100,12 @@
     </div>
   </div>
 
-  <div class="preview-section">
-    <div class="form-label">{$t('preview')}</div>
-    <div class="preview-plant">
-      <span class="preview-emoji" style="background: {selectedColor}">{selectedEmoji}</span>
-      <span class="preview-name">{newPlantName || ($t('plantName') || 'Plant Name')}</span>
-    </div>
-  </div>
-
   <div class="form-actions">
     <button class="btn btn-secondary" on:click={handleCancel}>
       {$t('cancel')}
     </button>
     <button class="btn btn-primary" on:click={handleAddPlant}>
-      {convertMode ? $t('save') : $t('addPlant')}
+      {$t('save')}
     </button>
   </div>
 </div>
@@ -253,62 +150,12 @@
     border: 2px solid #e9ecef;
     border-radius: 8px;
     font-size: 1rem;
+    box-sizing: border-box;
   }
 
   .text-input:focus {
     border-color: #2d5a27;
     outline: none;
-  }
-
-  .emoji-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(45px, 1fr));
-    gap: 0.5rem;
-  }
-
-  .emoji-button {
-    aspect-ratio: 1;
-    border: 2px solid #e9ecef;
-    border-radius: 8px;
-    background: #f8f9fa;
-    font-size: 1.25rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .emoji-button:hover {
-    background: #e9ecef;
-    border-color: #2d5a27;
-  }
-
-  .emoji-button.selected {
-    background: #e8f5e9;
-    border-color: #2d5a27;
-    border-width: 3px;
-  }
-
-  .preview-section {
-    margin-bottom: 1rem;
-  }
-
-  .preview-plant {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 1rem;
-    background: #f8f9fa;
-    border-radius: 8px;
-    border: 1px solid #e9ecef;
-  }
-
-  .preview-emoji {
-    font-size: 2rem;
-    width: 3rem;
-    height: 3rem;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
   }
 
   .color-grid {
@@ -344,12 +191,6 @@
     font-size: 1rem;
     color: white;
     text-shadow: 0 1px 2px rgba(0,0,0,0.6);
-  }
-
-  .preview-name {
-    font-size: 1rem;
-    color: #333;
-    font-weight: 500;
   }
 
   .form-actions {

@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import { plants, loadPlants, showToast, navigateToMap } from '../lib/stores.js';
   import { addEvent, EVENT_TYPES, getSections } from '../lib/db.js';
-  import { SECTION_BY_TYPE } from '../sections/index.js';
   import { t } from '../lib/i18n.js';
 
   let eventType = 'spray';
@@ -92,11 +91,11 @@
         successCount++;
       }
       await loadPlants();
-      showToast(`Event added to ${successCount} plant${successCount !== 1 ? 's' : ''}`, 'success');
+      showToast($t('eventSaved') + ` (${successCount})`, 'success');
       navigateToMap();
     } catch (err) {
       console.error('Failed to add event:', err);
-      showToast('Failed to add event', 'error');
+      showToast($t('addEventFailed'), 'error');
     } finally {
       isSubmitting = false;
     }
@@ -108,12 +107,12 @@
 </script>
 
 <div class="multi-event-container">
-  <h2 class="page-title">Add Event to Multiple Plants</h2>
+  <h2 class="page-title">{$t('multiEventTitle')}</h2>
 
   <div class="form-card">
     <!-- Event Type -->
     <div class="form-group">
-      <label for="eventType">Event Type</label>
+      <label for="eventType">{$t('eventType')}</label>
       <select id="eventType" bind:value={eventType}>
         {#each EVENT_TYPES as type}
           <option value={type.id}>{type.icon} {$t(type.label)}</option>
@@ -123,41 +122,40 @@
 
     <!-- Date -->
     <div class="form-group">
-      <label for="date">Date</label>
+      <label for="date">{$t('date')}</label>
       <input type="date" id="date" bind:value={date} required />
     </div>
 
     <!-- Notes -->
     <div class="form-group">
-      <label for="notes">Notes (optional)</label>
+      <label for="notes">{$t('eventNotes')} ({$t('optional')})</label>
       <textarea
         id="notes"
         bind:value={notes}
         rows="3"
-        placeholder="Add any notes about this event..."
+        placeholder={$t('addNotesPlaceholder')}
       ></textarea>
     </div>
 
     <!-- Plant Selection by Section -->
     <div class="form-group">
       <div class="plants-header">
-        <span>Select Plants ({selectedPlantIds.size}/{$plants.filter(p => p.type !== 'placeholder').length})</span>
+        <span>{$t('selectPlants')} ({selectedPlantIds.size}/{$plants.filter(p => p.type !== 'placeholder').length})</span>
       </div>
 
       <!-- Quick Actions -->
       <div class="quick-actions">
         <button type="button" class="quick-btn" on:click={selectAll}>
-          Select All
+          {$t('selectAll')}
         </button>
         <button type="button" class="quick-btn" on:click={deselectAll}>
-          Clear Selection
+          {$t('clearSelection')}
         </button>
       </div>
 
       <!-- Sections -->
       <div class="sections-list">
         {#each activeSections as sec}
-          {@const d = SECTION_BY_TYPE[sec.type]}
           {@const sectionPlants = plantsBySectionId[sec.instanceId] ?? []}
           <div class="section-group">
             <!-- Section Header -->
@@ -167,16 +165,16 @@
                 checked={sectionSelected[sec.instanceId]}
                 indeterminate={sectionPartial[sec.instanceId]}
                 on:click={(e) => selectSection(sec.instanceId, e)}
-                aria-label={`Toggle ${$t(sec.name)}`}
+                aria-label={`Toggle ${sec.name}`}
               />
-              <span class="section-icon">{d.icon}</span>
-              <span class="section-name">{$t(sec.name)}</span>
+              <span class="section-color" style="background: {sec.color ?? '#a8d5a2'}"></span>
+              <span class="section-name">{sec.name}</span>
               <span class="section-count">{sectionPlants.length}</span>
               <button
                 type="button"
                 class="expand-btn"
                 on:click={(e) => toggleSectionExpanded(sec.instanceId, e)}
-                aria-label={`${expandedSections[sec.instanceId] ? 'Collapse' : 'Expand'} ${$t(sec.name)}`}
+                aria-label={`${expandedSections[sec.instanceId] ? 'Collapse' : 'Expand'} ${sec.name}`}
               >
                 <span class="expand-icon">
                   {expandedSections[sec.instanceId] ? '▼' : '▶'}
@@ -196,7 +194,7 @@
                       on:change={() => togglePlant(plant.id)}
                     />
                     <label for="plant-{plant.id}" class="plant-label">
-                      <span class="plant-emoji">{plant.emoji || d.icon}</span>
+                      <span class="plant-color" style="background: {plant.color ?? '#ccc'}"></span>
                       <span class="plant-name">{plant.name}</span>
                     </label>
                   </div>
@@ -208,14 +206,14 @@
 
         {#if activeSections.length === 0}
           <div class="no-results">
-            No plants available
+            {$t('noPlantsAvailable')}
           </div>
         {/if}
       </div>
 
       {#if selectedPlantIds.size === 0}
         <div class="warning-message">
-          ⚠️ Please select at least one plant or section
+          ⚠️ {$t('selectAtLeastOne')}
         </div>
       {/if}
     </div>
@@ -223,10 +221,10 @@
     <!-- Form Actions -->
     <div class="form-actions">
       <button class="btn btn-secondary" on:click={handleCancel}>
-        Cancel
+        {$t('cancel')}
       </button>
       <button class="btn btn-primary" disabled={!canSubmit || isSubmitting} on:click={handleSubmit}>
-        {isSubmitting ? 'Saving...' : `Add Event to ${selectedPlantIds.size} Plant${selectedPlantIds.size !== 1 ? 's' : ''}`}
+        {isSubmitting ? $t('saving') : $t('saveEvent')}
       </button>
     </div>
   </div>
@@ -348,8 +346,10 @@
     flex-shrink: 0;
   }
 
-  .section-icon {
-    font-size: 1.5rem;
+  .section-color {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
     flex-shrink: 0;
   }
 
@@ -431,8 +431,10 @@
     cursor: pointer;
   }
 
-  .plant-emoji {
-    font-size: 1.5rem;
+  .plant-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
     flex-shrink: 0;
   }
 

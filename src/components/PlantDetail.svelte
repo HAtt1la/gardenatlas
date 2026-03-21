@@ -1,53 +1,30 @@
 <script>
   import { selectedPlant, plantEvents, plantForecast, loadPlantDetails, loadPlants, showToast, navigateToMap } from '../lib/stores.js';
-  import { updatePlant, deleteEvent, deletePlant, convertToPlaceholder, EVENT_TYPES, PLANT_TYPES } from '../lib/db.js';
+  import { updatePlant, deleteEvent, convertToPlaceholder, isLabelTaken, EVENT_TYPES } from '../lib/db.js';
   import { t } from '../lib/i18n.js';
+  import { PLANT_COLORS } from '../lib/constants.js';
   import EventForm from './EventForm.svelte';
   import PhotoGallery from './PhotoGallery.svelte';
 
   let isEditing = false;
   let editName = '';
   let editNotes = '';
-  let editEmoji = '';
   let editColor = '';
+  let editLabel = '';
+  let labelError = '';
   let showEventForm = false;
-
-  // Fruit emojis for tree customization
-  const fruitEmojis = ['🍎', '🍐', '🥭', '🥜', '🌰', '🌳', '🌲','🍒', '🟣', '🍑', '🍊'];
-
-  // Shared color palette used for all plant types
-  const PLANT_COLORS = [
-    { label: 'Red',       value: '#c0392b' },
-    { label: 'Orange',    value: '#e67e22' },
-    { label: 'Yellow',    value: '#f0c040' },
-    { label: 'Lime',      value: '#6aaa2a' },
-    { label: 'Green',     value: '#27ae60' },
-    { label: 'Teal',      value: '#16a085' },
-    { label: 'Sky',       value: '#2980b9' },
-    { label: 'Lavender',  value: '#8e44ad' },
-    { label: 'Pink',      value: '#e07a8e' },
-    { label: 'Brown',     value: '#8b5e3c' },
-    { label: 'Slate',     value: '#7f8c8d' },
-    { label: 'White',     value: '#d4c46e' },
-  ];
-
-  // Vine-specific colors (subset used as defaults for grape rows)
-  const vineColors = PLANT_COLORS;
 
   // Update edit fields when plant changes (but not while actively editing)
   $: if ($selectedPlant && !isEditing) {
     editName = $selectedPlant.name;
     editNotes = $selectedPlant.notes || '';
-    editEmoji = $selectedPlant.emoji || '';
     editColor = $selectedPlant.color || '';
+    editLabel = $selectedPlant.label || '';
+    labelError = '';
   }
 
-  $: plantType = PLANT_TYPES.find(t => t.id === $selectedPlant?.type);
-  
-  // Only allow delete for bed plants and herbs/flowers (type 'other')
-  $: canDelete = $selectedPlant?.type === 'bed-plant' || $selectedPlant?.type === 'other';
-  // Allow convert-to-placeholder for permanent grid plants
-  $: canMarkRemoved = $selectedPlant?.type === 'fruit' || $selectedPlant?.type === 'grape' || $selectedPlant?.type === 'raspberry';
+  // Allow convert-to-placeholder for section plants
+  $: canMarkRemoved = $selectedPlant?.type === 'plant';
 
   async function handleMarkAsRemoved() {
     if (!confirm($t('markAsRemovedConfirm'))) return;
@@ -63,57 +40,44 @@
   }
 
   async function saveChanges() {
-    const updateData = {
+    const trimmedLabel = editLabel.trim();
+    if (trimmedLabel && await isLabelTaken(trimmedLabel, $selectedPlant.id)) {
+      labelError = $t('labelTaken');
+      return;
+    }
+    await updatePlant($selectedPlant.id, {
       name: editName,
-      notes: editNotes
-    };
-    // Save emoji for fruit trees
-    if ($selectedPlant?.type === 'fruit' && editEmoji) {
-      updateData.emoji = editEmoji;
-    }
-    // Save color for all plant types that support it
-    if (editColor) {
-      updateData.color = editColor;
-    }
-    await updatePlant($selectedPlant.id, updateData);
+      notes: editNotes,
+      color: editColor || null,
+      label: trimmedLabel || null
+    });
     isEditing = false;
-    await loadPlants();
+    labelError = '';
+    // loadPlantDetails also triggers a loadPlants internally via the store
     await loadPlantDetails($selectedPlant.id);
-    showToast('Plant updated', 'success');
+    await loadPlants();
+    showToast($t('plantUpdated'), 'success');
   }
 
   function cancelEdit() {
     editName = $selectedPlant.name;
     editNotes = $selectedPlant.notes || '';
+    editLabel = $selectedPlant.label || '';
+    labelError = '';
     isEditing = false;
   }
 
   async function handleEventAdded() {
     await loadPlantDetails($selectedPlant.id);
     showEventForm = false;
-    showToast('Event added', 'success');
+    showToast($t('eventSaved'), 'success');
   }
 
   async function handleDeleteEvent(eventId) {
-    if (confirm('Delete this event?')) {
+    if (confirm($t('confirmDeleteEvent'))) {
       await deleteEvent(eventId);
       await loadPlantDetails($selectedPlant.id);
-      showToast('Event deleted', 'success');
-    }
-  }
-
-  async function handleDeletePlant() {
-    const plantName = $selectedPlant.name;
-    if (confirm(`Are you sure you want to delete "${plantName}"? This will also delete all associated events and cannot be undone.`)) {
-      try {
-        await deletePlant($selectedPlant.id);
-        await loadPlants();
-        showToast(`"${plantName}" deleted`, 'success');
-        navigateToMap();
-      } catch (err) {
-        console.error('Failed to delete plant:', err);
-        showToast('Failed to delete plant', 'error');
-      }
+      showToast($t('eventDeleted'), 'success');
     }
   }
 
@@ -136,34 +100,36 @@
     <!-- Plant Header -->
     <div class="plant-header">
       <div class="plant-icon">
-        {#if ($selectedPlant?.type === 'grape' || $selectedPlant?.type === 'raspberry' || $selectedPlant?.type === 'fruit' || $selectedPlant?.type === 'other' || $selectedPlant?.type === 'bed-plant')}
-          {@const displayColor = isEditing ? (editColor || $selectedPlant.color) : $selectedPlant.color}
-          {#if displayColor}
-            <span class="plant-color-preview" style="background: {displayColor}">
-              {$selectedPlant.emoji || plantType?.icon || '🌿'}
-            </span>
-          {:else}
-            {$selectedPlant.emoji || plantType?.icon || '🌿'}
-          {/if}
-        {:else}
-          {$selectedPlant.emoji || plantType?.icon || '🌿'}
+        {#if (isEditing ? (editColor || $selectedPlant.color) : $selectedPlant.color)}
+          <span class="plant-color-preview" style="background: {isEditing ? (editColor || $selectedPlant.color) : $selectedPlant.color}"></span>
         {/if}
       </div>
       <div class="plant-info">
         {#if isEditing}
-          <input 
-            type="text" 
-            bind:value={editName} 
+          <input
+            type="text"
+            bind:value={editName}
             class="edit-input"
-            placeholder="Plant name"
+            placeholder={$t('plantName')}
           />
+          <div class="label-edit-row">
+            <span class="label-prefix">{$t('plantLabel')}:</span>
+            <input
+              type="text"
+              bind:value={editLabel}
+              class="edit-input-label"
+              placeholder={$t('plantLabelPlaceholder')}
+            />
+          </div>
+          {#if labelError}
+            <p class="label-error">{labelError}</p>
+          {/if}
         {:else}
           <h2 class="plant-name">{$selectedPlant.name}</h2>
+          <div class="plant-meta">
+            <span class="plant-label-badge">#{$selectedPlant.label ?? $selectedPlant.id}</span>
+          </div>
         {/if}
-        <div class="plant-meta">
-          <span class="plant-id">ID: #{$selectedPlant.id}</span>
-          <span class="plant-type">{$t(plantType?.label || $selectedPlant.type)}</span>
-        </div>
       </div>
       
       {#if !isEditing}
@@ -209,68 +175,27 @@
           rows="3"
         ></textarea>
         
-        <!-- Emoji Picker for Fruit Trees -->
-        {#if $selectedPlant?.type === 'fruit'}
-          <div class="emoji-picker">
-            <div class="section-title">{$t('treeIcon')}</div>
-            <div class="emoji-grid">
-              {#each fruitEmojis as emoji}
-                <button 
-                  type="button"
-                  class="emoji-btn {editEmoji === emoji ? 'selected' : ''}"
-                  on:click={() => editEmoji = emoji}
-                  title={emoji}
-                >
-                  {emoji}
-                </button>
-              {/each}
-            </div>
+        <!-- Color Picker -->
+        <div class="emoji-picker">
+          <div class="section-title">{$t('plantColor')}</div>
+          <div class="color-grid">
+            {#each PLANT_COLORS as c}
+              <button
+                type="button"
+                class="color-btn {editColor === c.value ? 'selected' : ''}"
+                style="background: {c.value}"
+                on:click={() => editColor = c.value}
+                title={c.label}
+              >
+                {#if editColor === c.value}<span class="color-check">✓</span>{/if}
+              </button>
+            {/each}
           </div>
-        {/if}
-        
-        <!-- Color Picker for Grapevines -->
-        {#if $selectedPlant?.type === 'grape'}
-          <div class="emoji-picker">
-            <div class="section-title">{$t('vineColor')}</div>
-            <div class="color-grid">
-              {#each vineColors as c}
-                <button
-                  type="button"
-                  class="color-btn {editColor === c.value ? 'selected' : ''}"
-                  style="background: {c.value}"
-                  on:click={() => editColor = c.value}
-                  title={c.label}
-                >
-                  {#if editColor === c.value}<span class="color-check">✓</span>{/if}
-                </button>
-              {/each}
-            </div>
-          </div>
-        {/if}
-
-        <!-- Color Picker for all other types -->
-        {#if $selectedPlant?.type !== 'grape' && $selectedPlant?.type !== 'bed'}
-          <div class="emoji-picker">
-            <div class="section-title">{$t('plantColor')}</div>
-            <div class="color-grid">
-              {#each PLANT_COLORS as c}
-                <button
-                  type="button"
-                  class="color-btn {editColor === c.value ? 'selected' : ''}"
-                  style="background: {c.value}"
-                  on:click={() => editColor = c.value}
-                  title={c.label}
-                >
-                  {#if editColor === c.value}<span class="color-check">✓</span>{/if}
-                </button>
-              {/each}
-            </div>
-          </div>
-        {/if}
+        </div>
         
         <div class="edit-actions">
-          <button class="btn btn-secondary" on:click={cancelEdit}>Cancel</button>
-          <button class="btn btn-primary" on:click={saveChanges}>Save</button>
+          <button class="btn btn-secondary" on:click={cancelEdit}>{$t('cancel')}</button>
+          <button class="btn btn-primary" on:click={saveChanges}>{$t('save')}</button>
         </div>
       </div>
     {:else}
@@ -289,7 +214,7 @@
       <div class="section-header">
         <h3 class="section-title">{$t('eventHistory')}</h3>
         <button class="btn btn-primary btn-sm" on:click={() => showEventForm = true}>
-          + Add Event
+          + {$t('addEvent')}
         </button>
       </div>
 
@@ -319,7 +244,7 @@
               <button 
                 class="btn-delete" 
                 on:click={() => handleDeleteEvent(event.id)}
-                aria-label="Delete event"
+                aria-label={$t('delete')}
               >
                 🗑️
               </button>
@@ -327,31 +252,23 @@
           {/each}
         </div>
       {:else}
-        <p class="empty-state">No events recorded yet</p>
+        <p class="empty-state">{$t('noEvents')}</p>
       {/if}
     </div>
 
-    <!-- Danger Zone (for bed plants, herbs, and permanent grid plants) -->
-    {#if canDelete || canMarkRemoved}
+    <!-- Danger Zone -->
+    {#if canMarkRemoved}
       <div class="section danger-zone">
-        <h3 class="section-title danger-title">Danger Zone</h3>
-        {#if canMarkRemoved}
-          <p class="danger-description">{$t('markAsRemovedConfirm')}</p>
-          <button class="btn btn-danger" on:click={handleMarkAsRemoved}>
-            🪓 {$t('markAsRemoved')}
-          </button>
-        {/if}
-        {#if canDelete}
-          <p class="danger-description">Once you delete a plant, there is no going back. All events will also be deleted.</p>
-          <button class="btn btn-danger" on:click={handleDeletePlant}>
-            🗑️ Delete Plant
-          </button>
-        {/if}
+        <h3 class="section-title danger-title">{$t('dangerZone')}</h3>
+        <p class="danger-description">{$t('markAsRemovedConfirm')}</p>
+        <button class="btn btn-danger" on:click={handleMarkAsRemoved}>
+          🪓 {$t('markAsRemoved')}
+        </button>
       </div>
     {/if}
   </div>
 {:else}
-  <div class="empty-state">Plant not found</div>
+  <div class="empty-state">{$t('plantNotFound')}</div>
 {/if}
 
 <style>
@@ -393,9 +310,37 @@
     color: #666;
   }
 
-  .plant-id {
+  .plant-label-badge {
     font-weight: 600;
     color: #2d5a27;
+    font-size: 1rem;
+  }
+
+  .label-edit-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+  }
+
+  .label-prefix {
+    font-size: 0.8125rem;
+    color: #666;
+    white-space: nowrap;
+  }
+
+  .edit-input-label {
+    width: 100px;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.9375rem;
+    border: 2px solid #2d5a27;
+    border-radius: 8px;
+  }
+
+  .label-error {
+    font-size: 0.8125rem;
+    color: #e74c3c;
+    margin: 0.25rem 0 0;
   }
 
   .btn-edit {
