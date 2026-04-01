@@ -41,7 +41,8 @@
       "matchPackageNames": [
         "/^vite$/",
         "/^@vitejs//"
-      ]
+      ],
+      "allowedVersions": "<6"
     },
     {
       "matchPackageNames": [
@@ -58,6 +59,7 @@
       ],
       "matchPackageNames": [
         "/^eslint/",
+        "/^@eslint\\//",
         "/eslint-plugin/"
       ],
       "allowedVersions": "<10"
