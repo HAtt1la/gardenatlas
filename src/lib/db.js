@@ -706,11 +706,13 @@ const TYPE_MIGRATION = {
 };
 
 export const DEFAULT_SECTIONS = [
-  { instanceId: 'section-1', name: 'Fruit Trees',  cols: 6, rows: 1, color: '#a8d5a2', showWires: false },
-  { instanceId: 'section-2', name: 'Grapevines',   cols: 5, rows: 4, color: '#9b59b6', showWires: true },
-  { instanceId: 'section-3', name: 'Raspberries',  cols: 4, rows: 1, color: '#e74c3c', showWires: false },
-  { instanceId: 'section-4', name: 'Raised Beds',  cols: 3, rows: 1, color: '#8b6f47', showWires: false },
-  { instanceId: 'section-5', name: 'Other Plants', cols: 5, rows: 1, color: '#27ae60', showWires: false },
+  { instanceId: 'section-1',  name: 'Fruit Trees',   cols: 6, rows: 1, color: '#a8d5a2', showWires: false },
+  { instanceId: 'section-2',  name: 'Grapevines',    cols: 5, rows: 4, color: '#9b59b6', showWires: true },
+  { instanceId: 'section-3',  name: 'Raspberries',   cols: 4, rows: 1, color: '#e74c3c', showWires: false },
+  { instanceId: 'section-4a', name: 'Raised Bed A',  cols: 3, rows: 2, color: '#8b6f47', showWires: false },
+  { instanceId: 'section-4b', name: 'Raised Bed B',  cols: 3, rows: 2, color: '#8b6f47', showWires: false },
+  { instanceId: 'section-4c', name: 'Raised Bed C',  cols: 3, rows: 2, color: '#8b6f47', showWires: false },
+  { instanceId: 'section-5',  name: 'Other Plants',  cols: 5, rows: 1, color: '#27ae60', showWires: false },
 ];
 
 export async function getSections() {
@@ -737,11 +739,13 @@ export async function getSections() {
   const oldLayout = await getSetting('layout', null);
   if (oldLayout && !Array.isArray(oldLayout)) {
     const migrated = [
-      { instanceId: 'section-1', name: 'Fruit Trees',  cols: oldLayout.fruitTrees?.cols ?? 6,  rows: 1, color: '#a8d5a2', showWires: false },
-      { instanceId: 'section-2', name: 'Grapevines',   cols: oldLayout.grapevines?.cols ?? 5,  rows: oldLayout.grapevines?.rows ?? 4, color: '#9b59b6', showWires: true },
-      { instanceId: 'section-3', name: 'Raspberries',  cols: 4, rows: 1, color: '#e74c3c', showWires: false },
-      { instanceId: 'section-4', name: 'Raised Beds',  cols: 3, rows: 1, color: '#8b6f47', showWires: false },
-      { instanceId: 'section-5', name: 'Other Plants', cols: oldLayout.herbsFlowers?.cols ?? 5, rows: 1, color: '#27ae60', showWires: false },
+      { instanceId: 'section-1',  name: 'Fruit Trees',  cols: oldLayout.fruitTrees?.cols ?? 6,  rows: 1, color: '#a8d5a2', showWires: false },
+      { instanceId: 'section-2',  name: 'Grapevines',   cols: oldLayout.grapevines?.cols ?? 5,  rows: oldLayout.grapevines?.rows ?? 4, color: '#9b59b6', showWires: true },
+      { instanceId: 'section-3',  name: 'Raspberries',  cols: 4, rows: 1, color: '#e74c3c', showWires: false },
+      { instanceId: 'section-4a', name: 'Raised Bed A', cols: 3, rows: 2, color: '#8b6f47', showWires: false },
+      { instanceId: 'section-4b', name: 'Raised Bed B', cols: 3, rows: 2, color: '#8b6f47', showWires: false },
+      { instanceId: 'section-4c', name: 'Raised Bed C', cols: 3, rows: 2, color: '#8b6f47', showWires: false },
+      { instanceId: 'section-5',  name: 'Other Plants', cols: oldLayout.herbsFlowers?.cols ?? 5, rows: 1, color: '#27ae60', showWires: false },
     ];
     await setSetting('sections', migrated);
     return migrated;

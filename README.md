@@ -1,6 +1,6 @@
 # GardenAtlas
 
-An offline-first Progressive Web App for garden management. Track plants, log care events, forecast spray schedules, and visualize your garden layout — all stored locally, no account needed.
+An offline-first Progressive Web App for garden management. Track plants, log care events, forecast spray schedules, and visualize your garden layout - all stored locally, no account needed.
 
 **Live app**: [HAtt1la.github.io/gardenatlas](https://hatt1la.github.io/gardenatlas/)
 
@@ -8,20 +8,20 @@ An offline-first Progressive Web App for garden management. Track plants, log ca
 
 ## Features
 
-- **Garden map** — SVG top-down view of all sections; tap a plant card to open its detail
-- **Unified sections** — add any number of sections, each fully configurable (name, columns, rows, color, wire lines)
-- **Plant labels (sorszám)** — each plant has an editable label for physical garden markers; searchable
-- **Plant health** — rule-based health score (good / fair / poor / bad) derived from care profiles and event history; shown as a colored status dot on each card
-- **Care profiles** — named rule sets (e.g. "Apple tree") with seasonal and event-triggered care rules; assign one profile per plant
-- **Event timeline** — log flowering, spraying, pruning, harvesting, planting, sickness per plant; events are editable
-- **Bulk events** — add an event to many plants at once (e.g. spray the whole garden)
-- **Photos** — up to 3 compressed photos per plant stored in IndexedDB; photo replaces color fallback on card
-- **Todo list** — task tracker with dependency chains
-- **Export / import** — full JSON backup; auto-backup reminder
-- **Update prompt** — notified when a new version is available; choose when to apply it
-- **Offline** — service worker caches the app shell; works without internet after first load
-- **PWA** — installable on Android / iOS home screen
-- **English / Hungarian** — language switch in Settings
+- **Garden map** - SVG top-down view of all sections; tap a plant card to open its detail
+- **Unified sections** - add any number of sections, each fully configurable (name, columns, rows, color, wire lines)
+- **Plant labels (sorszám)** - each plant has an editable label for physical garden markers; searchable
+- **Plant health** - rule-based health score (good / fair / poor / bad) derived from care profiles and event history; shown as a colored status dot on each card
+- **Care profiles** - named rule sets (e.g. "Apple tree") with seasonal and event-triggered care rules; assign one profile per plant
+- **Event timeline** - log flowering, spraying, pruning, harvesting, planting, sickness per plant; events are editable
+- **Bulk events** - add an event to many plants at once (e.g. spray the whole garden)
+- **Photos** - up to 3 compressed photos per plant stored in IndexedDB; photo replaces color fallback on card
+- **Todo list** - task tracker with dependency chains
+- **Export / import** - full JSON backup; auto-backup reminder
+- **Update prompt** - notified when a new version is available; choose when to apply it
+- **Offline** - service worker caches the app shell; works without internet after first load
+- **PWA** - installable on Android / iOS home screen
+- **English / Hungarian** - language switch in Settings
 
 ---
 
@@ -51,8 +51,8 @@ src/
   main.js                     # entry point, SW registration
   App.svelte                  # app shell, routing, update detection
   lib/
-    db.js                     # Dexie/IndexedDB — all CRUD, migrations, care profile seed
-    health.js                 # health engine — derives status from care rules + events
+    db.js                     # Dexie/IndexedDB - all CRUD, migrations, care profile seed
+    health.js                 # health engine - derives status from care rules + events
     stores.js                 # Svelte reactive stores
     i18n.js                   # EN/HU translations
     sampleData.js             # seed data for first launch
@@ -90,8 +90,8 @@ docs/
 | Document | Audience |
 |----------|----------|
 | [Architecture](docs/architecture.md) | Overview of system design |
-| [Technical Guide](docs/contributor/technical-guide.md) | Contributors — codebase internals |
-| [User Guide](docs/user/user-guide.md) | End users — how to use the app |
+| [Technical Guide](docs/contributor/technical-guide.md) | Contributors - codebase internals |
+| [User Guide](docs/user/user-guide.md) | End users - how to use the app |
 
 ---
 
@@ -129,9 +129,9 @@ Plant `type` values: `grape`, `fruit`, `raspberry`, `bed`, `other`, `placeholder
 
 Follows semver. Current version: **1.3.0**
 
-- **PATCH** — bug fixes, UI tweaks
-- **MINOR** — new user-visible features
-- **MAJOR** — significant redesigns or breaking data migrations
+- **PATCH** - bug fixes, UI tweaks
+- **MINOR** - new user-visible features
+- **MAJOR** - significant redesigns or breaking data migrations
 
 ---
 

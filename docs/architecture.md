@@ -1,4 +1,4 @@
-# GardenAtlas — Architecture
+# GardenAtlas - Architecture
 
 ## Overview
 
@@ -8,11 +8,11 @@ GardenAtlas is an offline-first PWA. There is no backend, no API, no user accoun
 
 ## Key Design Principles
 
-- **Offline-first** — service worker caches the app shell on first load; every feature works without internet
-- **Local-only data** — IndexedDB via Dexie.js; export/import is the sync mechanism
-- **Unified sections** — all garden sections share one configurable template `{ instanceId, name, cols, rows, color, showWires }`; no type-specific descriptors or renderers
-- **SVG map** — the garden is rendered as a single inline SVG; section and plant card rendering is fully inlined in `GardenMap.svelte`
-- **No router library** — navigation is conditional rendering controlled by stores
+- **Offline-first** - service worker caches the app shell on first load; every feature works without internet
+- **Local-only data** - IndexedDB via Dexie.js; export/import is the sync mechanism
+- **Unified sections** - all garden sections share one configurable template `{ instanceId, name, cols, rows, color, showWires }`; no type-specific descriptors or renderers
+- **SVG map** - the garden is rendered as a single inline SVG; section and plant card rendering is fully inlined in `GardenMap.svelte`
+- **No router library** - navigation is conditional rendering controlled by stores
 
 ---
 
@@ -72,7 +72,7 @@ Key-value store. Notable keys:
 | Key | Value |
 |-----|-------|
 | `sections` | JSON array of section instance objects |
-| `sprayIntervals` | integer (days) — single global spray interval |
+| `sprayIntervals` | integer (days) - single global spray interval |
 | `language` | `'en'` or `'hu'` |
 | `lastBackupAt` | ISO string |
 | `backupSnoozedUntil` | ISO string |
@@ -123,7 +123,7 @@ Key-value store. Notable keys:
 
 Current version: **2**.
 
-Never modify an existing `db.version(N)` block — always add a new `db.version(N+1)`.
+Never modify an existing `db.version(N)` block - always add a new `db.version(N+1)`.
 
 ---
 
@@ -151,13 +151,13 @@ Sections are stored as a JSON array in the `settings` table under the key `'sect
 | `color` | hex, used as section background tint and plant card tint |
 | `showWires` | boolean, draws SVG horizontal lines between rows (trellis/cordon display) |
 
-`DEFAULT_SECTIONS` in `db.js` defines the five sections seeded on first install.
+`DEFAULT_SECTIONS` in `db.js` defines the seven sections seeded on first install.
 
 ---
 
 ## Garden Map Rendering
 
-`GardenMap.svelte` owns the SVG canvas. All rendering is inlined — no separate renderer components. For each section it:
+`GardenMap.svelte` owns the SVG canvas. All rendering is inlined - no separate renderer components. For each section it:
 
 1. Filters `$plants` by `sectionId`, sorts by `sortOrder ?? id`
 2. Computes Y position reactively from accumulated section heights
@@ -169,17 +169,17 @@ Sections are stored as a JSON array in the `settings` table under the key `'sect
 Constants: `CARD_W = 52`, `CARD_H = 60`, `ROW_GAP = 10`, `WIRE_COLOR = '#8d6e63'`, `GARDEN_WIDTH = 360`.
 
 Plant card layers (bottom to top):
-1. Background rect — `colorToTint(plant.color)` fill
-2. Status dot — top-right corner, colored by **health system** (`good`/`fair`/`poor`/`bad`/`none`)
-3. Photo (if available) — clipped to card bounds
-4. Label fade gradient — transparent→white at card bottom
+1. Background rect - `colorToTint(plant.color)` fill
+2. Photo (if available) - clipped to card bounds
+3. Status dot - top-right corner, colored by **health system** (`good`/`fair`/`poor`/`bad`/`none`)
+4. Label fade gradient - transparent→white at card bottom
 5. Plant name text
 
 ---
 
 ## Health System
 
-`src/lib/health.js` derives plant health at runtime — no separate stored table.
+`src/lib/health.js` derives plant health at runtime - no separate stored table.
 
 ### How health is computed (`getPlantHealth(plantId)`)
 
@@ -241,12 +241,12 @@ The **map status dot** uses the health system (`health.js`), not this forecast.
 ## PWA / Offline
 
 The service worker (`public/sw.js`) uses:
-- **Install**: caches app shell assets; does **not** call `skipWaiting()` — waits for user confirmation
+- **Install**: caches app shell assets; does **not** call `skipWaiting()` - waits for user confirmation
 - **Activate**: cleans old caches, claims clients
 - **Fetch**: network-first for navigation (HTML), stale-while-revalidate for assets
 - **Message**: listens for `'SKIP_WAITING'` from the app to activate a waiting SW
 
-`App.svelte` detects a waiting SW on mount and shows `UpdateBanner` — user chooses "Update now" (triggers reload) or "Later".
+`App.svelte` detects a waiting SW on mount and shows `UpdateBanner` - user chooses "Update now" (triggers reload) or "Later".
 
 Data never leaves the device unless the user explicitly exports it.
 
