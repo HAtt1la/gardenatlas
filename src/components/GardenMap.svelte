@@ -71,7 +71,7 @@
     await loadThumbnails();
   });
 
-  $: if ($plants.length > 0) {
+  $: if ($plants) {
     updateStatuses();
     loadThumbnails();
   }
@@ -253,7 +253,6 @@
             on:keydown={(e) => e.key === 'Enter' && handlePlantClick(plant, e)}
             role="button" tabindex="0">
             <rect x={cx - CARD_W/2} y={ty} width={CARD_W} height={CARD_H} rx="7" fill={bg} stroke="#ccc" stroke-width="0.5" class="card-bg" />
-            <rect x={cx + CARD_W/2 - 12} y={ty + 3} width="10" height="10" rx="3" fill={sc} class="status-dot" />
             {#if plantThumbs[plant.id]}
               <defs>
                 <clipPath id="card-clip-{plant.id}">
@@ -268,6 +267,7 @@
                 clip-path="url(#card-clip-{plant.id})"
                 class="card-photo" />
             {/if}
+            <rect x={cx + CARD_W/2 - 12} y={ty + 3} width="10" height="10" rx="3" fill={sc} class="status-dot" />
             <rect x={cx - CARD_W/2 + 1} y={ty + CARD_H - 16} width={CARD_W - 2} height="15" rx="0" fill="url(#label-fade)" />
             <text x={cx} y={ty + CARD_H - 4} class="card-label"
               textLength={plant.name.length > 6 ? CARD_W - 6 : null}

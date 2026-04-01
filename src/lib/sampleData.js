@@ -43,17 +43,36 @@ const SAMPLE_PLANTS = [
   { id: 42, name: 'Raspberry 3', label: '42', type: 'plant', sectionId: 'section-3', color: '#f0c040', notes: 'All Gold' },
   { id: 43, name: 'Raspberry 4', label: '43', type: 'plant', sectionId: 'section-3', color: '#e07a8e', notes: 'Polka' },
 
-  // Raised Beds — section-4 (3 cols)
-  { id: 50, name: 'Bed A', label: '50', type: 'plant', sectionId: 'section-4', color: '#8b5e3c', notes: 'Tomatoes, peppers' },
-  { id: 51, name: 'Bed B', label: '51', type: 'plant', sectionId: 'section-4', color: '#8b5e3c', notes: 'Cucumbers, herbs' },
-  { id: 52, name: 'Bed C', label: '52', type: 'plant', sectionId: 'section-4', color: '#8b5e3c', notes: 'Salad, spinach' },
+  // Raised Bed A — section-4a (3 cols × 2 rows)
+  { id: 50, name: 'Tomato 1',  label: '50', type: 'plant', sectionId: 'section-4a', color: '#e74c3c', notes: 'Cherry tomato' },
+  { id: 51, name: 'Tomato 2',  label: '51', type: 'plant', sectionId: 'section-4a', color: '#e74c3c', notes: 'Beefsteak' },
+  { id: 52, name: 'Pepper 1',  label: '52', type: 'plant', sectionId: 'section-4a', color: '#e67e22', notes: 'Bell pepper' },
+  { id: 53, name: 'Pepper 2',  label: '53', type: 'plant', sectionId: 'section-4a', color: '#e67e22', notes: 'Hot pepper' },
+  { id: 54, name: 'Eggplant',  label: '54', type: 'plant', sectionId: 'section-4a', color: '#8e44ad', notes: 'Purple eggplant' },
+  { id: 55, name: 'Basil',     label: '55', type: 'plant', sectionId: 'section-4a', color: '#6aaa2a', notes: 'Companion plant' },
+
+  // Raised Bed B — section-4b (3 cols × 2 rows)
+  { id: 56, name: 'Cucumber 1', label: '56', type: 'plant', sectionId: 'section-4b', color: '#27ae60', notes: 'Pickling' },
+  { id: 57, name: 'Cucumber 2', label: '57', type: 'plant', sectionId: 'section-4b', color: '#27ae60', notes: 'Slicing' },
+  { id: 58, name: 'Zucchini',   label: '58', type: 'plant', sectionId: 'section-4b', color: '#6aaa2a', notes: 'Green zucchini' },
+  { id: 59, name: 'Dill',       label: '59', type: 'plant', sectionId: 'section-4b', color: '#a8d5a2', notes: 'Herb' },
+  { id: 60, name: 'Parsley',    label: '60', type: 'plant', sectionId: 'section-4b', color: '#a8d5a2', notes: 'Herb' },
+  { id: 61, name: 'Chive',      label: '61', type: 'plant', sectionId: 'section-4b', color: '#a8d5a2', notes: 'Herb' },
+
+  // Raised Bed C — section-4c (3 cols × 2 rows)
+  { id: 62, name: 'Lettuce 1',  label: '62', type: 'plant', sectionId: 'section-4c', color: '#a8d5a2', notes: 'Butterhead' },
+  { id: 63, name: 'Lettuce 2',  label: '63', type: 'plant', sectionId: 'section-4c', color: '#6aaa2a', notes: 'Romaine' },
+  { id: 64, name: 'Spinach',    label: '64', type: 'plant', sectionId: 'section-4c', color: '#27ae60', notes: 'Baby spinach' },
+  { id: 65, name: 'Radish',     label: '65', type: 'plant', sectionId: 'section-4c', color: '#e74c3c', notes: 'Cherry Belle' },
+  { id: 66, name: 'Carrot',     label: '66', type: 'plant', sectionId: 'section-4c', color: '#e67e22', notes: 'Nantes' },
+  { id: 67, name: 'Beetroot',   label: '67', type: 'plant', sectionId: 'section-4c', color: '#8e44ad', notes: 'Boltardy' },
 
   // Other Plants — section-5 (5 cols)
-  { id: 60, name: 'Lavender',  label: '60', type: 'plant', sectionId: 'section-5', color: '#8e44ad' },
-  { id: 61, name: 'Rosemary',  label: '61', type: 'plant', sectionId: 'section-5', color: '#27ae60' },
-  { id: 62, name: 'Basil',     label: '62', type: 'plant', sectionId: 'section-5', color: '#6aaa2a' },
-  { id: 63, name: 'Mint',      label: '63', type: 'plant', sectionId: 'section-5', color: '#16a085' },
-  { id: 64, name: 'Thyme',     label: '64', type: 'plant', sectionId: 'section-5', color: '#27ae60' },
+  { id: 70, name: 'Lavender',  label: '70', type: 'plant', sectionId: 'section-5', color: '#8e44ad' },
+  { id: 71, name: 'Rosemary',  label: '71', type: 'plant', sectionId: 'section-5', color: '#27ae60' },
+  { id: 72, name: 'Mint',      label: '72', type: 'plant', sectionId: 'section-5', color: '#16a085' },
+  { id: 73, name: 'Thyme',     label: '73', type: 'plant', sectionId: 'section-5', color: '#27ae60' },
+  { id: 74, name: 'Sage',      label: '74', type: 'plant', sectionId: 'section-5', color: '#8e44ad' },
 ];
 
 const SAMPLE_EVENTS = [
@@ -65,7 +84,7 @@ const SAMPLE_EVENTS = [
   { plantId: 21, eventType: 'spray',   date: '2026-01-28', notes: 'Fungicide' },
   { plantId: 22, eventType: 'spray',   date: '2026-02-01', notes: 'Recent spray' },
   { plantId: 1,  eventType: 'planted', date: '2018-03-15', notes: 'Original planting' },
-  { plantId: 50, eventType: 'planted', date: '2023-04-01', notes: 'Built raised bed A' },
+  { plantId: 50, eventType: 'planted', date: '2023-04-01', notes: 'Spring planting' },
   { plantId: 1,  eventType: 'pruned',  date: '2026-01-10', notes: 'Winter pruning' },
   { plantId: 20, eventType: 'pruned',  date: '2026-01-05', notes: 'Spur pruning' },
 ];
