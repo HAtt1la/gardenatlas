@@ -67,8 +67,6 @@
 
   onMount(async () => {
     sections = await getSections();
-    plantStatuses = await getAllPlantHealthStatuses($plants);
-    await loadThumbnails();
   });
 
   $: if ($plants.length > 0) {
