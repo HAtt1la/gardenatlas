@@ -121,7 +121,7 @@ Key-value store. Notable keys:
 
 ## Schema
 
-Current version: **2**.
+Current version: **3**.
 
 Never modify an existing `db.version(N)` block - always add a new `db.version(N+1)`.
 

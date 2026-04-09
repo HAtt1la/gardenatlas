@@ -60,7 +60,7 @@ Structure:
 - **Forecast** - `calculateNextSpray(plantId)` returns `{ nextDate, status, daysUntil }`
 - **Backup** - `exportData`, `importData`, `shouldShowBackupPrompt`
 
-Current schema version: **2**.
+Current schema version: **3**.
 
 #### Adding a DB migration
 
