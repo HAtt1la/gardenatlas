@@ -23,6 +23,11 @@ db.version(2).stores({
   careRules: '++id, profileId'
 });
 
+// Version 3: Compound index on photos [plantId+isMain] for faster main photo lookup
+db.version(3).stores({
+  photos: '++id, plantId, isMain, [plantId+isMain]'
+});
+
 // Event types - labels are i18n keys, will be translated at runtime
 export const EVENT_TYPES = [
   { id: 'planted', label: 'planted', icon: '🌱' },

@@ -70,12 +70,8 @@
   });
 
   $: if ($plants) {
-    updateStatuses();
+    getAllPlantHealthStatuses($plants).then(s => { plantStatuses = s; });
     loadThumbnails();
-  }
-
-  async function updateStatuses() {
-    plantStatuses = await getAllPlantHealthStatuses($plants);
   }
 
   async function loadThumbnails() {
@@ -92,11 +88,6 @@
   onDestroy(() => {
     for (const url of Object.values(plantThumbs)) URL.revokeObjectURL(url);
   });
-
-  function getStatusColor(plantId) {
-    const s = plantStatuses[plantId]?.status;
-    return HEALTH_COLORS[s] ?? HEALTH_COLORS.none;
-  }
 
   function colorToTint(hex) {
     if (!hex) return 'rgba(255,255,255,0.82)';
@@ -244,7 +235,7 @@
             <text x={cx} y={ty + CARD_H * 0.55} class="placeholder-label">{$t('placeholderLabel')}</text>
           </g>
         {:else}
-          {@const sc = getStatusColor(plant.id)}
+          {@const sc = HEALTH_COLORS[plantStatuses[plant.id]?.status] ?? HEALTH_COLORS.none}
           {@const bg = colorToTint(plant.color)}
           <g class="plant-marker"
             on:click={(e) => handlePlantClick(plant, e)}
