@@ -12,7 +12,7 @@
   import UpdateBanner from './components/UpdateBanner.svelte';
   import { currentView, loadPlants, navigateToMap, navigateToSettings, navigateToCareProfiles, navigateToMultiEvent, toasts, activeEventTab } from './lib/stores.js';
   import { initializeSampleData } from './lib/sampleData.js';
-  import { migratePlantSectionIds, shouldShowBackupPrompt, seedCareProfiles } from './lib/db.js';
+  import { migratePlantSectionIds, shouldShowBackupPrompt, seedCareProfiles, ensureHexPositions } from './lib/db.js';
   import { t } from './lib/i18n.js';
 
   let showBackupBanner = false;
@@ -24,6 +24,8 @@
     await loadPlants();
     const migrated = await migratePlantSectionIds();
     if (migrated) await loadPlants();
+    // give any plant missing hex coordinates a position (idempotent)
+    if (await ensureHexPositions()) await loadPlants();
     await seedCareProfiles();
     showBackupBanner = await shouldShowBackupPrompt();
 

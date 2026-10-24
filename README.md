@@ -8,8 +8,10 @@ An offline-first Progressive Web App for garden management. Track plants, log ca
 
 ## Features
 
-- **Garden map** - SVG top-down view of all sections; tap a plant card to open its detail
-- **Unified sections** - add any number of sections, each fully configurable (name, columns, rows, color, wire lines)
+- **Hexagonal garden map** - SVG top-down view; every plant is a hex card you can place freely on the hex grid (grapevines keep tidy rows); tap a card to open its detail
+- **Zoom & pan** - pinch to zoom into any section, drag to pan, floating +/−/reset buttons
+- **Arrange mode** - drag plants to a new spot (even across sections), drop on an occupied hex and it snaps to the nearest free one; tap an empty hex to plant something new
+- **Unified sections** - add any number of sections as containers, each configurable (name, color)
 - **Plant labels (sorszám)** - each plant has an editable label for physical garden markers; searchable
 - **Plant health** - rule-based health score (good / fair / poor / bad) derived from care profiles and event history; shown as a colored status dot on each card
 - **Care profiles** - named rule sets (e.g. "Apple tree") with seasonal and event-triggered care rules; assign one profile per plant
@@ -17,10 +19,10 @@ An offline-first Progressive Web App for garden management. Track plants, log ca
 - **Bulk events** - add an event to many plants at once (e.g. spray the whole garden)
 - **Photos** - up to 3 compressed photos per plant stored in IndexedDB; photo replaces color fallback on card
 - **Todo list** - task tracker with dependency chains
-- **Export / import** - full JSON backup; auto-backup reminder
+- **Export / import** - full JSON backup; auto-backup reminder; old backups are migrated to the hex layout automatically
 - **Update prompt** - notified when a new version is available; choose when to apply it
 - **Offline** - service worker caches the app shell; works without internet after first load
-- **PWA** - installable on Android / iOS home screen
+- **PWA** - installable on Android / desktop (homepage install prompt); add to home screen on iOS
 - **English / Hungarian** - language switch in Settings
 
 ---
@@ -51,15 +53,17 @@ src/
   main.js                     # entry point, SW registration
   App.svelte                  # app shell, routing, update detection
   lib/
-    db.js                     # Dexie/IndexedDB - all CRUD, migrations, care profile seed
+    db.js                     # Dexie/IndexedDB - all CRUD, hex migration, care profile seed
+    hex.js                    # hex grid math (axial coords, pointy-top geometry, free-hex search)
     health.js                 # health engine - derives status from care rules + events
     stores.js                 # Svelte reactive stores
     i18n.js                   # EN/HU translations
     sampleData.js             # seed data for first launch
   components/
-    GardenMap.svelte          # SVG map, inlined section + plant card renderer
-    SectionSheet.svelte       # bottom sheet: section config + add plant
-    AddPlantInline.svelte     # convert-placeholder form
+    GardenMap.svelte          # hex map: layout, zoom/pan, Arrange mode drag & drop
+    HexCard.svelte            # shared hex plant card renderer
+    SectionSheet.svelte       # bottom sheet: section name/color + add plant
+    AddPlantInline.svelte     # add-plant form for an empty hex spot
     PlantDetail.svelte        # plant detail view (events, photos, health, edit)
     EventForm.svelte          # single-plant event form (add + edit)
     MultiEventForm.svelte     # bulk event form
@@ -109,11 +113,11 @@ docs/
 
 ---
 
-## Database Schema (v2)
+## Database Schema (v4)
 
 | Table | Key fields |
 |-------|------------|
-| `plants` | `id`, `name`, `type`, `sectionId`, `color`, `label`, `profileId` |
+| `plants` | `id`, `name`, `type`, `sectionId`, `q`/`r` (hex map position), `color`, `label`, `profileId` |
 | `events` | `id`, `plantId`, `eventType`, `date`, `modifiedAt`, `source` |
 | `settings` | `key` (key-value store) |
 | `photos` | `id`, `plantId`, `isMain` (blob) |
@@ -121,13 +125,13 @@ docs/
 | `careProfiles` | `id`, `name`, `description`, `isBuiltin` |
 | `careRules` | `id`, `profileId`, `trigger`, `triggerMonths`, `action`, `product`, `purpose`, `windowDays` |
 
-Plant `type` values: `grape`, `fruit`, `raspberry`, `bed`, `other`, `placeholder`.
+Plant `type` values: `grape`, `fruit`, `raspberry`, `bed`, `other`.
 
 ---
 
 ## Versioning
 
-Follows semver. Current version: **1.3.0**
+Follows semver. Current version: **2.0.0**
 
 - **PATCH** - bug fixes, UI tweaks
 - **MINOR** - new user-visible features

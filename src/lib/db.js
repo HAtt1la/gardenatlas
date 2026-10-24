@@ -1,4 +1,5 @@
 import Dexie from 'dexie';
+import { findFreeHex } from './hex.js';
 
 // Create database
 export const db = new Dexie('GardenAtlasDB');
@@ -26,6 +27,73 @@ db.version(2).stores({
 // Version 3: Compound index on photos [plantId+isMain] for faster main photo lookup
 db.version(3).stores({
   photos: '++id, plantId, isMain, [plantId+isMain]'
+});
+
+// Version 4: Hexagonal grid layout - replace rows/cols with axial coordinates
+db.version(4).stores({
+  plants: '++id, name, type, sectionId, color, &label, profileId, [sectionId+q+r]',
+  events: '++id, [plantId+eventType], plantId, eventType, date, modifiedAt, source',
+  settings: 'key',
+  photos: '++id, plantId, isMain, [plantId+isMain]',
+  todos: '++id, createdAt, doneAt',
+  careProfiles: '++id, isBuiltin',
+  careRules: '++id, profileId'
+}).upgrade(async tx => {
+  // Migrate plants to hex coordinates
+  const plants = await tx.table('plants').toArray();
+  const sectionsSetting = await tx.table('settings').get('sections');
+  const sections = sectionsSetting?.value || [];
+  
+  // Build a map of section info
+  const sectionMap = {};
+  for (const sec of sections) {
+    sectionMap[sec.instanceId] = sec;
+  }
+  
+  // Group plants by section
+  const plantsBySection = {};
+  for (const plant of plants) {
+    if (!plantsBySection[plant.sectionId]) {
+      plantsBySection[plant.sectionId] = [];
+    }
+    plantsBySection[plant.sectionId].push(plant);
+  }
+  
+  // Migrate each section
+  for (const [sectionId, sectionPlants] of Object.entries(plantsBySection)) {
+    const section = sectionMap[sectionId];
+    const cols = section?.cols || 6;
+    const rows = section?.rows || 1;
+    
+    // Sort by old order
+    const sorted = sectionPlants.sort((a, b) => (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id));
+    
+    // Convert to hex coordinates - place in rows
+    // Use axial coordinates with r as row, q as column
+    let idx = 0;
+    for (let r = 0; r < rows; r++) {
+      for (let q = 0; q < cols; q++) {
+        if (idx < sorted.length) {
+          const plant = sorted[idx++];
+          await tx.table('plants').update(plant.id, {
+            q,
+            r,
+            sortOrder: null
+          });
+        }
+      }
+    }
+  }
+  
+  // Update sections to remove cols/rows
+  if (sectionsSetting) {
+    const updatedSections = sections.map(sec => {
+      // eslint-disable-next-line no-unused-vars
+      const { cols, rows, showWires, ...rest } = sec;
+      return rest;
+    });
+    await tx.table('settings').put({ key: 'sections', value: updatedSections });
+  }
 });
 
 // Event types - labels are i18n keys, will be translated at runtime
@@ -328,6 +396,9 @@ export async function importData(data) {
       await db.photos.bulkAdd(photosWithBlobs);
     }
   });
+  // Older backups may carry no/invalid hex coordinates, dead section
+  // references and obsolete fields — normalize before the UI reads them.
+  await healImportedData();
 }
 
 // Forecast calculation
@@ -564,193 +635,51 @@ export async function deletePhotosForPlant(plantId) {
   await db.photos.where('plantId').equals(plantId).delete();
 }
 
-// Convert a real plant to a placeholder in-place (tree cut down etc.)
-export async function convertToPlaceholder(id) {
+// Remove plant (tree cut down etc.) — deletes its events and photos too
+export async function removePlant(id) {
   const plant = await db.plants.get(id);
-  if (!plant || plant.type === 'placeholder') return;
-  // Delete associated events and photos - placeholder has no history
+  if (!plant) return;
   await db.events.where('plantId').equals(id).delete();
   await db.photos.where('plantId').equals(id).delete();
-  return await db.plants.update(id, {
-    type: 'placeholder',
-    name: '',
-    color: null,
-    notes: null,
-    label: null
-    // sectionId is preserved as-is
-  });
+  return await db.plants.delete(id);
 }
 
-// ── Layout column/row adjustment helpers ──────────────────────────────────
-
-// Get all plants of a section instance (real + placeholders) in DB order
-async function getSectionPlants(sectionId) {
-  const all = await db.plants.toArray();
-  return all
-    .filter(p => p.sectionId === sectionId)
-    .sort((a, b) => (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id));
-}
-
-// Validate whether columns can be decreased by N.
-// Rule: every row must have at least N placeholders.
-// Returns { ok: true } or { ok: false, message, blockingPlants }
-export async function validateColDecrease(sectionId, currentCols, newCols) {
-  const decrease = currentCols - newCols;
-  if (decrease <= 0) return { ok: true };
-  const plants = await getSectionPlants(sectionId);
-  const rowCount = Math.ceil(plants.length / currentCols);
-  const blockingPlants = [];
-  for (let row = 0; row < rowCount; row++) {
-    const rowPlants = plants.slice(row * currentCols, (row + 1) * currentCols);
-    const placeholderCount = rowPlants.filter(p => p.type === 'placeholder').length;
-    if (placeholderCount < decrease) {
-      const real = rowPlants.filter(p => p.type !== 'placeholder');
-      blockingPlants.push(...real.slice(0, decrease - placeholderCount));
-    }
-  }
-  if (blockingPlants.length > 0) {
-    return { ok: false, blockingPlants };
-  }
-  return { ok: true };
-}
-
-// Apply a column decrease: remove one placeholder per row, N times.
-export async function applyColDecrease(sectionId, currentCols, newCols) {
-  const decrease = currentCols - newCols;
-  if (decrease <= 0) return;
-  let plants;
-  for (let pass = 0; pass < decrease; pass++) {
-    plants = await getSectionPlants(sectionId);
-    const cols = currentCols - pass;
-    const rowCount = Math.ceil(plants.length / cols);
-    for (let row = rowCount - 1; row >= 0; row--) {
-      const rowPlants = plants.slice(row * cols, (row + 1) * cols);
-      const lastPlaceholder = [...rowPlants].reverse().find(p => p.type === 'placeholder');
-      if (lastPlaceholder) {
-        await db.plants.delete(lastPlaceholder.id);
-      }
-    }
-  }
-}
-
-// Apply a column increase: add one placeholder per existing row for each new column.
-export async function applyColIncrease(sectionId, currentCols, newCols) {
-  const increase = newCols - currentCols;
-  if (increase <= 0) return;
-  const plants = await getSectionPlants(sectionId);
-  if (plants.length === 0) return;
-  const rowCount = Math.ceil(plants.length / currentCols);
-  for (let pass = 0; pass < increase; pass++) {
-    for (let row = 0; row < rowCount; row++) {
-      await db.plants.add({
-        name: '',
-        type: 'placeholder',
-        sectionId,
-        color: null
-      });
-    }
-  }
-}
-
-// Validate row decrease (same logic, operates on full rows)
-export async function validateRowDecrease(sectionId, currentCols, currentRows, newRows) {
-  const decrease = currentRows - newRows;
-  if (decrease <= 0) return { ok: true };
-  const plants = await getSectionPlants(sectionId);
-  const blockingPlants = [];
-  for (let row = currentRows - decrease; row < currentRows; row++) {
-    const rowPlants = plants.slice(row * currentCols, (row + 1) * currentCols);
-    const real = rowPlants.filter(p => p.type !== 'placeholder');
-    blockingPlants.push(...real);
-  }
-  if (blockingPlants.length > 0) {
-    return { ok: false, blockingPlants };
-  }
-  return { ok: true };
-}
-
-// Apply a row decrease: delete all plants (placeholders only, validated) in removed rows
-export async function applyRowDecrease(sectionId, currentCols, currentRows, newRows) {
-  const decrease = currentRows - newRows;
-  if (decrease <= 0) return;
-  const plants = await getSectionPlants(sectionId);
-  for (let row = currentRows - decrease; row < currentRows; row++) {
-    const rowPlants = plants.slice(row * currentCols, (row + 1) * currentCols);
-    for (const p of rowPlants) {
-      await db.plants.delete(p.id);
-    }
-  }
-}
-
-// Apply a row increase: add a full row of placeholders
-export async function applyRowIncrease(sectionId, currentCols, newRows, currentRows) {
-  const increase = newRows - currentRows;
-  if (increase <= 0) return;
-  for (let r = 0; r < increase; r++) {
-    for (let c = 0; c < currentCols; c++) {
-      await db.plants.add({
-        name: '',
-        type: 'placeholder',
-        sectionId,
-        color: null
-      });
-    }
-  }
-}
+// Hexagonal grid - no row/column layout helpers needed
 
 // ── Garden Sections ─────────────────────────────────────────────────────────
 
-// Maps old type-based sections to color/wire defaults for migration
-const TYPE_MIGRATION = {
-  fruit:     { color: '#a8d5a2', showWires: false },
-  grape:     { color: '#9b59b6', showWires: true },
-  raspberry: { color: '#e74c3c', showWires: false },
-  shrub:     { color: '#8b6f47', showWires: false },
-  other:     { color: '#27ae60', showWires: false },
-  bed:       { color: '#8b6f47', showWires: false },
-};
-
 export const DEFAULT_SECTIONS = [
-  { instanceId: 'section-1',  name: 'Fruit Trees',   cols: 6, rows: 1, color: '#a8d5a2', showWires: false },
-  { instanceId: 'section-2',  name: 'Grapevines',    cols: 5, rows: 4, color: '#9b59b6', showWires: true },
-  { instanceId: 'section-3',  name: 'Raspberries',   cols: 4, rows: 1, color: '#e74c3c', showWires: false },
-  { instanceId: 'section-4a', name: 'Raised Bed A',  cols: 3, rows: 2, color: '#8b6f47', showWires: false },
-  { instanceId: 'section-4b', name: 'Raised Bed B',  cols: 3, rows: 2, color: '#8b6f47', showWires: false },
-  { instanceId: 'section-4c', name: 'Raised Bed C',  cols: 3, rows: 2, color: '#8b6f47', showWires: false },
-  { instanceId: 'section-5',  name: 'Other Plants',  cols: 5, rows: 1, color: '#27ae60', showWires: false },
+  { instanceId: 'section-1',  name: 'Fruit Trees',   color: '#a8d5a2' },
+  { instanceId: 'section-2',  name: 'Grapevines',    color: '#9b59b6' },
+  { instanceId: 'section-3',  name: 'Raspberries',   color: '#e74c3c' },
+  { instanceId: 'section-4a', name: 'Raised Bed A',  color: '#8b6f47' },
+  { instanceId: 'section-4b', name: 'Raised Bed B',  color: '#8b6f47' },
+  { instanceId: 'section-4c', name: 'Raised Bed C',  color: '#8b6f47' },
+  { instanceId: 'section-5',  name: 'Other Plants',  color: '#27ae60' },
 ];
 
 export async function getSections() {
   const saved = await getSetting('sections', null);
   if (saved && Array.isArray(saved)) {
-    // Migrate old typed sections: add color/showWires if missing
-    let patched = false;
+    // Clean up old fields
     const result = saved.map(s => {
-      if (s.color != null && s.showWires != null) return s;
-      const defaults = TYPE_MIGRATION[s.type] ?? { color: '#a8d5a2', showWires: false };
-      patched = true;
       // eslint-disable-next-line no-unused-vars
-      const { type, ...rest } = s;
-      return {
-        ...rest,
-        color: s.color ?? defaults.color,
-        showWires: s.showWires ?? defaults.showWires
-      };
+      const { cols, rows, showWires, type, ...rest } = s;
+      return rest;
     });
-    if (patched) await setSetting('sections', result);
     return result;
   }
   // Migrate from old named-key layout format
   const oldLayout = await getSetting('layout', null);
   if (oldLayout && !Array.isArray(oldLayout)) {
     const migrated = [
-      { instanceId: 'section-1',  name: 'Fruit Trees',  cols: oldLayout.fruitTrees?.cols ?? 6,  rows: 1, color: '#a8d5a2', showWires: false },
-      { instanceId: 'section-2',  name: 'Grapevines',   cols: oldLayout.grapevines?.cols ?? 5,  rows: oldLayout.grapevines?.rows ?? 4, color: '#9b59b6', showWires: true },
-      { instanceId: 'section-3',  name: 'Raspberries',  cols: 4, rows: 1, color: '#e74c3c', showWires: false },
-      { instanceId: 'section-4a', name: 'Raised Bed A', cols: 3, rows: 2, color: '#8b6f47', showWires: false },
-      { instanceId: 'section-4b', name: 'Raised Bed B', cols: 3, rows: 2, color: '#8b6f47', showWires: false },
-      { instanceId: 'section-4c', name: 'Raised Bed C', cols: 3, rows: 2, color: '#8b6f47', showWires: false },
-      { instanceId: 'section-5',  name: 'Other Plants', cols: oldLayout.herbsFlowers?.cols ?? 5, rows: 1, color: '#27ae60', showWires: false },
+      { instanceId: 'section-1',  name: 'Fruit Trees',   color: '#a8d5a2' },
+      { instanceId: 'section-2',  name: 'Grapevines',    color: '#9b59b6' },
+      { instanceId: 'section-3',  name: 'Raspberries',   color: '#e74c3c' },
+      { instanceId: 'section-4a', name: 'Raised Bed A',  color: '#8b6f47' },
+      { instanceId: 'section-4b', name: 'Raised Bed B',  color: '#8b6f47' },
+      { instanceId: 'section-4c', name: 'Raised Bed C',  color: '#8b6f47' },
+      { instanceId: 'section-5',  name: 'Other Plants',  color: '#27ae60' },
     ];
     await setSetting('sections', migrated);
     return migrated;
@@ -760,6 +689,120 @@ export async function getSections() {
 
 export async function saveSections(sections) {
   await setSetting('sections', sections);
+}
+
+// Hex coordinate operations
+export async function updatePlantHexPosition(id, q, r) {
+  return await db.plants.update(id, { q, r });
+}
+
+// Move a plant to another hex, possibly to a different section
+export async function movePlantToHex(id, sectionId, q, r) {
+  return await db.plants.update(id, { sectionId, q, r });
+}
+
+/**
+ * Make sure every plant has usable hex coordinates (q, r).
+ *  1. Plants missing q/r get a non-colliding position (rows of 6).
+ *  2. Plants stacked on the same hex are spread out to the nearest free hex.
+ * Idempotent — safe to call on every startup / after every import.
+ * Returns true if anything was written.
+ */
+export async function ensureHexPositions() {
+  const plants = await db.plants.toArray();
+  const live = plants.filter(p => p.type !== 'placeholder');
+
+  // working list with coordinates resolved: missing ones get
+  // the first free "rows of 6" cell in their section
+  const occupied = new Map(); // sectionId -> Set("q,r")
+  for (const p of live) {
+    if (p.q == null || p.r == null) continue;
+    if (!occupied.has(p.sectionId)) occupied.set(p.sectionId, new Set());
+    occupied.get(p.sectionId).add(`${p.q},${p.r}`);
+  }
+
+  const resolved = [];
+  for (const p of live) {
+    if (p.q == null || p.r == null) {
+      if (!occupied.has(p.sectionId)) occupied.set(p.sectionId, new Set());
+      const used = occupied.get(p.sectionId);
+      let idx = 0, q = 0, r = 0;
+      while (used.has(`${q},${r}`)) {
+        q = ++idx % 6;
+        r = Math.floor(idx / 6);
+      }
+      resolved.push({ id: p.id, sectionId: p.sectionId, q, r, moved: true });
+      used.add(`${q},${r}`);
+    } else {
+      resolved.push({ id: p.id, sectionId: p.sectionId, q: p.q, r: p.r, moved: false });
+    }
+  }
+
+  // spread out plants stacked on the same hex (keep the first, move the rest)
+  const seen = new Map(); // sectionId -> Set("q,r")
+  for (const p of resolved) {
+    if (!seen.has(p.sectionId)) seen.set(p.sectionId, new Set());
+    const used = seen.get(p.sectionId);
+    const key = `${p.q},${p.r}`;
+    if (!used.has(key)) {
+      used.add(key);
+      continue;
+    }
+    const free = findFreeHex(used, p.q, p.r);
+    if (free) {
+      p.q = free.q;
+      p.r = free.r;
+      p.moved = true;
+      used.add(`${p.q},${p.r}`);
+    }
+  }
+
+  const changed = resolved.filter(p => p.moved);
+  if (!changed.length) return false;
+
+  await Promise.all(changed.map(c =>
+    db.plants.update(c.id, { q: c.q, r: c.r, sectionId: c.sectionId })
+  ));
+  return true;
+}
+
+/**
+ * Fix imported records from older app versions:
+ *  - plants referring to a section that no longer exists are moved to the first section
+ *  - obsolete fields (sortOrder) are removed
+ *  - hex coordinates are ensured afterwards
+ * Returns true if any plant was modified (besides coordinate assignment).
+ */
+export async function healImportedData() {
+  const sections = await getSections();
+  const sectionIds = new Set(sections.map(s => s.instanceId));
+  const fallbackSection = sections[0]?.instanceId ?? null;
+  const plants = await db.plants.toArray();
+
+  const updates = [];
+  for (const p of plants) {
+    const changes = {};
+    let touched = false;
+    if (p.sectionId == null || !sectionIds.has(p.sectionId)) {
+      changes.sectionId = fallbackSection;
+      touched = true;
+    }
+    if (p.sortOrder !== undefined) {
+      changes.sortOrder = null;
+      touched = true;
+    }
+    if (touched) {
+      // keep an entry even for empty changes so we can strip per-plant
+      updates.push({ id: p.id, changes });
+    }
+  }
+
+  for (const u of updates) {
+    await db.plants.update(u.id, u.changes);
+  }
+
+  await ensureHexPositions();
+  return updates.length > 0;
 }
 
 // Check whether a label is already taken by another plant
@@ -778,80 +821,42 @@ async function nextLabel() {
   return String(n);
 }
 
-// Add a placeholder plant for a given section instance
-export async function addPlaceholderPlant(sectionId) {
+// Add a real named plant to a section at the first free hex position
+export async function addSectionPlant(sectionId, name, color) {
+  const label = await nextLabel();
+  const existing = await db.plants
+    .where('sectionId').equals(sectionId)
+    .filter(p => p.type !== 'placeholder')
+    .toArray();
+  const occupied = new Set(existing.map(p => `${p.q ?? 0},${p.r ?? 0}`));
+  // row of 6, expanding outward
+  let idx = 0, q = 0, r = 0;
+  while (occupied.has(`${q},${r}`)) {
+    q = ++idx % 6;
+    r = Math.floor(idx / 6);
+  }
   return await db.plants.add({
-    name: '',
-    type: 'placeholder',
+    name,
+    type: 'plant',
     sectionId,
-    color: null,
-    label: null
+    color: color || null,
+    label,
+    q,
+    r
   });
 }
 
-// Add a real named plant directly to a section (no placeholder step)
-export async function addSectionPlant(sectionId, name, color) {
+// Add plant at a specific hex position
+export async function addPlantAtHex(sectionId, q, r, name = '', color = null) {
   const label = await nextLabel();
   return await db.plants.add({
     name,
     type: 'plant',
     sectionId,
-    color: color || null,
-    label
-  });
-}
-
-// Convert a placeholder to a real plant in-place.
-// position: 1-based target column within its row (optional).
-export async function convertPlaceholder(id, name, color, position) {
-  const plant = await db.plants.get(id);
-  if (!plant || plant.type !== 'placeholder') return;
-
-  if (position != null) {
-    const sectionId = plant.sectionId;
-    const all = await db.plants.toArray();
-    const section = all
-      .filter(p => p.sectionId === sectionId)
-      .sort((a, b) => (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id));
-
-    const idx = section.findIndex(p => p.id === id);
-
-    const allSections = await getSections();
-    const sec = allSections.find(s => s.instanceId === sectionId);
-    const cols = sec?.cols ?? 1;
-
-    const row = Math.floor(idx / cols);
-    const rowStart = row * cols;
-
-    const targetCol = Math.max(0, Math.min(cols - 1, (position - 1)));
-    const currentCol = idx - rowStart;
-
-    if (targetCol !== currentCol) {
-      let order = 0;
-      for (const p of section) {
-        if (p.sortOrder == null) await db.plants.update(p.id, { sortOrder: order });
-        order++;
-      }
-      const refreshed = (await db.plants.toArray())
-        .filter(p => p.sectionId === sectionId)
-        .sort((a, b) => (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id));
-      const refreshedRow = refreshed.slice(rowStart, rowStart + cols);
-
-      const targetPlant = refreshedRow[targetCol];
-      const thisPlant   = refreshedRow[currentCol];
-      if (targetPlant && thisPlant) {
-        const tmpOrder = thisPlant.sortOrder ?? thisPlant.id;
-        await db.plants.update(thisPlant.id,   { sortOrder: targetPlant.sortOrder ?? targetPlant.id });
-        await db.plants.update(targetPlant.id, { sortOrder: tmpOrder });
-      }
-    }
-  }
-
-  return await db.plants.update(id, {
-    type: 'plant',
-    name,
-    color: color || null,
-    label: await nextLabel()
+    color,
+    label,
+    q,
+    r
   });
 }
 

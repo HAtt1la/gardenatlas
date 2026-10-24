@@ -5,69 +5,24 @@
   import { loadPlants } from '../lib/stores.js';
   import { PLANT_COLORS } from '../lib/constants.js';
 
-  export let section;      // instance { instanceId, name, cols, rows, color, showWires }
-  export let onClose;      // () => void
-  export let onSave;       // (updatedSection) => void
-  export let onColChange;  // async (newCols) => { ok, blockingPlants? }
-  export let onRowChange;  // async (newRows) => { ok, blockingPlants? }
+  export let section;
+  export let onClose;
+  export let onSave;
 
   let editName = section.name;
-  let editCols = section.cols ?? 1;
-  let editRows = section.rows ?? 1;
   let editColor = section.color ?? '#a8d5a2';
-  let editShowWires = section.showWires ?? false;
 
   let showAddForm = false;
   let newName = '';
   let selectedColor = section.color ?? '#a8d5a2';
 
-  const MIN_COLS = 1;
-  const MAX_COLS = 8;
-  const MIN_ROWS = 1;
-  const MAX_ROWS = 8;
-
   const ALL_COLORS = PLANT_COLORS;
-
-  async function decreaseCols() {
-    if (editCols <= MIN_COLS) return;
-    const result = await onColChange(editCols - 1);
-    if (!result.ok) {
-      showToast($t('layoutColsBlocked').replace('{n}', result.blockingPlants.length), 'error');
-    } else {
-      editCols -= 1;
-    }
-  }
-
-  async function increaseCols() {
-    if (editCols >= MAX_COLS) return;
-    await onColChange(editCols + 1);
-    editCols += 1;
-  }
-
-  async function decreaseRows() {
-    if (editRows <= MIN_ROWS) return;
-    const result = await onRowChange(editRows - 1);
-    if (!result.ok) {
-      showToast($t('layoutRowsBlocked').replace('{n}', result.blockingPlants.length), 'error');
-    } else {
-      editRows -= 1;
-    }
-  }
-
-  async function increaseRows() {
-    if (editRows >= MAX_ROWS) return;
-    await onRowChange(editRows + 1);
-    editRows += 1;
-  }
 
   function handleSave() {
     const updated = {
       ...section,
       name: editName.trim() || section.name,
-      cols: editCols,
-      rows: editRows,
-      color: editColor,
-      showWires: editShowWires
+      color: editColor
     };
     onSave(updated);
   }
@@ -77,6 +32,7 @@
       showToast($t('plantNameRequired'), 'error');
       return;
     }
+    // Add at the first free hex — the user can drag it in Arrange mode
     await addSectionPlant(section.instanceId, newName.trim(), selectedColor);
     await loadPlants();
     showToast($t('plantAdded'), 'success');
@@ -101,6 +57,7 @@
   <div class="sheet-panel"
     role="dialog"
     aria-modal="true"
+    tabindex="-1"
     on:click|stopPropagation
     on:keydown|stopPropagation>
     <div class="drag-handle"></div>
@@ -112,28 +69,10 @@
       <input id="sec-name" type="text" bind:value={editName} />
     </div>
 
-    <div class="sheet-field stepper-row">
-      <span class="stepper-label">{$t('colsLabel')}</span>
-      <div class="stepper">
-        <button class="stepper-btn" on:click={decreaseCols} disabled={editCols <= MIN_COLS}>−</button>
-        <span class="stepper-val">{editCols}</span>
-        <button class="stepper-btn" on:click={increaseCols} disabled={editCols >= MAX_COLS}>+</button>
-      </div>
-    </div>
-
-    <div class="sheet-field stepper-row">
-      <span class="stepper-label">{$t('rowsLabel')}</span>
-      <div class="stepper">
-        <button class="stepper-btn" on:click={decreaseRows} disabled={editRows <= MIN_ROWS}>−</button>
-        <span class="stepper-val">{editRows}</span>
-        <button class="stepper-btn" on:click={increaseRows} disabled={editRows >= MAX_ROWS}>+</button>
-      </div>
-    </div>
-
     <div class="sheet-field">
       <div class="form-label">{$t('sectionColor')}</div>
       <div class="color-grid">
-        {#each ALL_COLORS as c}
+        {#each ALL_COLORS as c (c.value)}
           <button
             type="button"
             class="color-btn {editColor === c.value ? 'selected' : ''}"
@@ -147,13 +86,7 @@
       </div>
     </div>
 
-    <div class="sheet-field toggle-row">
-      <span class="stepper-label">{$t('showWires')}</span>
-      <label class="toggle">
-        <input type="checkbox" bind:checked={editShowWires} />
-        <span class="toggle-slider"></span>
-      </label>
-    </div>
+    <p class="hex-hint">{$t('arrangeHint')}</p>
 
     {#if !showAddForm}
       <button class="btn btn-add-plant" on:click={() => showAddForm = true}>
@@ -176,7 +109,7 @@
         <div class="form-group">
           <div class="form-label">{$t('plantColor')}</div>
           <div class="color-grid">
-            {#each ALL_COLORS as c}
+            {#each ALL_COLORS as c (c.value)}
               <button
                 type="button"
                 class="color-btn {selectedColor === c.value ? 'selected' : ''}"
@@ -263,55 +196,6 @@
     outline: none;
   }
 
-  .stepper-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .toggle-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .stepper-label {
-    font-size: 0.9375rem;
-    font-weight: 500;
-  }
-
-  .stepper {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .stepper-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: 2px solid #e9ecef;
-    background: #f8f9fa;
-    font-size: 1.25rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-  }
-
-  .stepper-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .stepper-val {
-    font-size: 1.125rem;
-    font-weight: 700;
-    min-width: 2ch;
-    text-align: center;
-  }
-
   .form-label {
     display: block;
     font-size: 0.8125rem;
@@ -350,49 +234,6 @@
     text-shadow: 0 1px 2px rgba(0,0,0,0.6);
   }
 
-  /* Toggle switch */
-  .toggle {
-    position: relative;
-    display: inline-block;
-    width: 44px;
-    height: 24px;
-  }
-
-  .toggle input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-
-  .toggle-slider {
-    position: absolute;
-    cursor: pointer;
-    inset: 0;
-    background: #ccc;
-    border-radius: 24px;
-    transition: background 0.2s;
-  }
-
-  .toggle-slider::before {
-    content: '';
-    position: absolute;
-    height: 18px;
-    width: 18px;
-    left: 3px;
-    bottom: 3px;
-    background: white;
-    border-radius: 50%;
-    transition: transform 0.2s;
-  }
-
-  .toggle input:checked + .toggle-slider {
-    background: #2d5a27;
-  }
-
-  .toggle input:checked + .toggle-slider::before {
-    transform: translateX(20px);
-  }
-
   .btn-add-plant {
     width: 100%;
     margin-bottom: 1rem;
@@ -408,6 +249,16 @@
 
   .btn-add-plant:hover {
     background: linear-gradient(135deg, #3d7a37 0%, #5a9c53 100%);
+  }
+
+  .hex-hint {
+    font-size: 0.8125rem;
+    color: #666;
+    margin: 0 0 1rem;
+    padding: 0.75rem;
+    background: #f8fdf8;
+    border-radius: 8px;
+    border: 1px solid #c8e6c9;
   }
 
   .add-plant-inline {
