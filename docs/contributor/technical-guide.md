@@ -134,10 +134,7 @@ Sections are stored as a JSON array under the `sections` settings key. There is 
 {
   "instanceId": "section-1",
   "name": "Fruit Trees",
-  "cols": 6,
-  "rows": 1,
-  "color": "#a8d5a2",
-  "showWires": false
+  "color": "#a8d5a2"
 }
 ```
 
@@ -145,10 +142,11 @@ Sections are stored as a JSON array under the `sections` settings key. There is 
 |-------|-------|
 | `instanceId` | unique string - links `plants.sectionId` |
 | `name` | free text, user-editable |
-| `cols` | 1–8, cards per row |
-| `rows` | 1–8, fixed row count (1 = single unbounded row) |
 | `color` | hex - section background tint + plant card accent |
-| `showWires` | boolean - draws horizontal SVG lines between rows |
+
+Since the hexagonal layout (schema v4), placement is per-plant axial hex coordinates, so sections no longer carry `cols`/`rows`/`showWires`. `getAllSections()` strips those legacy fields from stored sections for backwards compatibility, and `Settings.svelte` still creates new sections with them before the strip - harmless, but do not build new features on these fields.
+
+Layout behavior is per-section: `GardenMap.svelte` bounds each hex cluster and centers it in the section strip; wide clusters overflow horizontally and are reached by panning (see Zoom & pan below).
 
 `DEFAULT_SECTIONS` in `db.js` defines the seven sections seeded on first install.
 
@@ -158,29 +156,31 @@ Sections are stored as a JSON array under the `sections` settings key. There is 
 
 ### SVG rendering
 
-`GardenMap.svelte` owns the single `<svg>` element. All section and plant card rendering is inlined - no separate renderer components. Constants at the top of the script:
+`GardenMap.svelte` owns the single `<svg>` element; `HexCard.svelte` renders each plant hexagon. Constants at the top of the map script:
 
 ```js
-const CARD_W = 52;
-const CARD_H = 60;
-const ROW_GAP = 10;
-const WIRE_COLOR = '#8d6e63';
-const GARDEN_WIDTH = 360;
+const GARDEN_WIDTH = 360;   // viewBox width at zoom 1
+const SECTION_HEADER_H = 28;
+const SECTION_GAP = 18;
+const DRAG_THRESHOLD = 5;   // px until a press counts as a drag
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 4;
 ```
 
-For each section the map:
-1. Filters `$plants` by `sectionId`, sorts by `sortOrder ?? id`
-2. Computes Y offset from accumulated section heights
-3. Draws a background rect (tinted with `sec.color` at `opacity=0.12`)
-4. Renders a tappable section label
-5. Iterates plants: placeholder cards (dashed) or real plant cards
-6. Wire lines: `{#if sec.showWires && col === 0}` SVG `<line>` per row
+The `viewBox` is the visible window onto the garden: `vx, vy, GARDEN_WIDTH/zoom, totalHeight/zoom`. Because the element height follows the aspect ratio, `getScreenCTM()` maps pointer events straight to world coordinates at any zoom - hit-testing (`svgPointToHex`) never needs to undo the zoom manually.
 
-Plant card layers (bottom to top): background rect → photo (if any) → status dot (health system color) → gradient fade → name text.
+For each section the map:
+1. Filters `$plants` by `sectionId`, maps each to hex pixel space via `axialToPixel`
+2. Bounds the hex cluster in hex space, centers it in the strip (`offsetX/offsetY`), renders background rect tinted with `sec.color` at `opacity 0.12`
+3. Renders a tappable section label (opens `SectionSheet`)
+4. Renders each plant as a positioned `<g>` with `HexCard`
+5. In Arrange mode additionally draws hoverHex snap highlight + drag ghost
+
+Plant hex card layers (bottom to top): hexagon clip (`hexPath`) → tint fill → photo (if any) → status dot (health system color) at the top vertex → name text with white halo (`paint-order: stroke`).
 
 ### Plant labels (sorszám)
 
-Each plant has a `label` field - a user-editable string for physical garden markers, stored with a unique index (`&label` in Dexie). Call `isLabelTaken(label, excludeId)` before saving. Placeholders have `label: null`.
+Each plant has a `label` field - a user-editable string for physical garden markers, stored with a unique index (`&label` in Dexie). Call `isLabelTaken(label, excludeId)` before saving. Plants created without a label have `label: null` - IndexedDB skips null keys in unique indexes, so any number of unlabeled plants can coexist.
 
 ### Reactivity
 
@@ -190,7 +190,7 @@ Each plant has a `label` field - a user-editable string for physical garden mark
 
 ### Dark mode
 
-Plant name text in SVG is locked to dark color with `@media (prefers-color-scheme: dark)` overrides in `GardenMap.svelte`. Do not use `currentColor` for SVG text fills - always use explicit hex values.
+There are no dark-mode overrides - the app renders light only (`<meta name="color-scheme" content="light">` in `index.html`). Plant name text in SVG uses explicit fills (`#111`), never `currentColor`.
 
 ---
 
@@ -243,57 +243,31 @@ Care profiles are the knowledge base for plant health. Each plant can have one p
 2. Merge to `main` (triggers auto-deploy to GitHub Pages)
 3. Tag the release - this triggers `release.yml` and creates a GitHub Release with a `dist/` zip
 
-## Hexagonal Grid Layout (In Progress)
+## Hexagonal Grid Layout
 
-**Status:** In development
-
-### Overview
-Migrating from row/column grid layout to a unified hexagonal grid using axial coordinates `(q, r)` for all plants. This provides more flexible placement - grapevines can stay in rows while fruit trees can be placed freely anywhere on the map.
-
-### Implementation
+Every plant carries axial hex coordinates `(q, r)` — sections are containment and grouping only; placement is per-plant. Pointy-top hexes (vertex up/down): a constant `r` renders as a straight horizontal row of hexes (grapevines read as rows on the wires), while fruit trees can be placed freely anywhere on the map.
 
 **Hex utilities** (`src/lib/hex.js`):
-- Axial coordinate system for pointy-top hexagons
-- `axialToPixel()` / `pixelToAxial()` conversions
-- `hexPath()` for SVG rendering
-- `hexNeighbors()`, `hexDistance()` helpers
+- Pointy-top geometry: `HEX_SIZE = 30` (radius center → vertex), `HEX_W = √3·size`, `HEX_H = 2·size`
+- `axialToPixel()` / `pixelToAxial()` conversions with cube-round `axialRound()`
+- `hexNeighbors()`, `hexDistance()`, `findFreeHex()` (spiral search for the nearest unoccupied cell)
+- `hexPath()` for SVG rendering, `colorToTint()` for card fills
 
-**Database changes** (`src/lib/db.js`):
-- Schema v4: Added `q`, `r` to plants, compound index `[sectionId+q+r]`
-- Migration from v3: Converts existing row/col layouts to hex coordinates
-- Removed placeholder system and row/col layout helpers
-- Added `updatePlantHexPosition()`, `addPlantAtHex()`
+**Database** (`src/lib/db.js`):
+- Schema v4: `q`, `r` on plants, compound index `[sectionId+q+r]`
+- `ensureHexPositions()`: idempotent startup self-heal — missing coords assigned, overlaps re-placed
+- Placeholder system and row/col layout helpers removed (`removePlant()` = delete)
+- `movePlantToHex()`, `addPlantAtHex()`, `addSectionPlant()`
 
 **Components**:
-- `GardenMap.svelte`: Renders hexagonal cards, supports drag & drop in Arrange mode, click empty hex to add plants
-- `SectionSheet.svelte`: Simplified - no more cols/rows/wires, just name and color
-- `PlantDetail.svelte`: Updated to remove plant instead of converting to placeholder
-- `AddPlantInline.svelte`: Updated for hex coordinate placement
+- `GardenMap.svelte` + `HexCard.svelte`: hexagonal card rendering with drag & drop, see Component Conventions below
+- `SectionSheet.svelte`: name + color only (plus an inline add-plant form)
+- `AddPlantInline.svelte`: opens on an empty hex under the cursor
+- `PlantDetail.svelte`: "Remove plant" deletes instead of converting placeholders
 
-### Current Issues
-- Hexagons overlapping due to coordinate assignment issues
-- Need to ensure proper hex grid spacing
-- Drag and drop needs refinement
+See the dated entries below for the full change history of the migration.
 
-### Next Steps
-- Fix hex coordinate assignment to prevent overlaps
-- Improve drag and drop to snap to valid hex positions
-- Add visual feedback for valid drop targets
-- Test migration with existing data
-
-### Progress Log
-- [x] Created hex utilities library
-- [x] Database schema migration to hex coordinates
-- [x] Removed placeholder/row-col layout system
-- [x] Updated GardenMap to render hexagons
-- [x] Added drag & drop in Arrange mode
-- [x] Updated SectionSheet, PlantDetail, AddPlantInline
-- [x] Fix hex positioning to prevent overlaps
-- [x] Improve hex grid rendering and spacing
-- [x] Drag & drop working on touch (pointer events)
-- [x] Test with real data
-
-### Fixed — hexagonal rendering & drag (2026-10-24)
+## Fixed — hexagonal rendering & drag (2026-10-24)
 
 **Why hexes overlapped:** `hexPath()` drew a flat-top hexagon (vertices at
 0°/60°/120°, width = 2·size) while `axialToPixel()` used pointy-top spacing
@@ -340,7 +314,7 @@ Remaining work:
 - polish: keyboard-accessible arrange mode, undo for accidental moves
   (pinch-zoom/pan was delivered — see 2026-10-24 zoom/pan entry)
 
-### Zoom & pan for the hex map + bigger hexes (2026-10-24)
+## Zoom & pan for the hex map + bigger hexes (2026-10-24)
 
 After real-world testing, the fruit cluster (a 6-wide staggered block ≈520
 world px) was being scaled down to ~60% to fit the 360-px canvas — hexes were
@@ -371,7 +345,7 @@ barely readable on a phone. Two-part fix:
   - zoom buttons overlay bottom-right of the map with i18n labels
     (`zoomIn`/`zoomOut`/`resetView`, EN/HU).
 
-### PWA install fix (2026-10-24)
+## PWA install fix (2026-10-24)
 
 The app was never installable: `index.html` linked the manifest with an
 absolute path (`/manifest.json`), which 404s under the `/gardenatlas/` base
@@ -383,7 +357,7 @@ secure context — localhost (desktop) and any HTTPS deployment work; opening
 the dev server over plain HTTP from a LAN IP (phone testing) cannot install
 by design.
 
-### Old backup compatibility (2026-10-24)
+## Old backup compatibility (2026-10-24)
 
 Backups exported by pre-hex versions (schema ≤ v3) load with every plant
 stacked on hex (0,0) — plants carry no `q`/`r` at all. Hardened both the

@@ -10,8 +10,8 @@ GardenAtlas is an offline-first PWA. There is no backend, no API, no user accoun
 
 - **Offline-first** - service worker caches the app shell on first load; every feature works without internet
 - **Local-only data** - IndexedDB via Dexie.js; export/import is the sync mechanism
-- **Unified sections** - all garden sections share one configurable template `{ instanceId, name, cols, rows, color, showWires }`; no type-specific descriptors or renderers
-- **SVG map** - the garden is rendered as a single inline SVG; section and plant card rendering is fully inlined in `GardenMap.svelte`
+- **Unified sections** - all garden sections share one configurable template `{ instanceId, name, color }`; no type-specific descriptors or renderers
+- **Hexagonal map** - the garden is a single inline SVG; plants live on axial hex coordinates `(q, r)`, placement is per-plant and free-form (grapevines still read as rows)
 - **No router library** - navigation is conditional rendering controlled by stores
 
 ---
@@ -46,11 +46,11 @@ GardenAtlas is an offline-first PWA. There is no backend, no API, no user accoun
 |-------|------|-------|
 | `id` | auto-increment | primary key |
 | `name` | string | display name |
-| `type` | string | `'grape'`, `'fruit'`, `'raspberry'`, `'bed'`, `'other'`, or `'placeholder'` |
+| `type` | string | 'grape', 'fruit', 'raspberry', 'bed', or 'other' |
 | `sectionId` | string | links plant to a section instance |
+| `q` \| `r` | number | axial hex coordinates on the garden map (schema v4; missing coords are assigned by `ensureHexPositions()`) |
 | `color` | hex string | card background tint color |
-| `label` | string\|null | user-editable garden label (sorszám); unique index; defaults to id on creation |
-| `sortOrder` | number\|null | explicit column position within a row |
+| `label` | string\|null | user-editable garden label (sorszám); unique index; `null` = no label, skipped by the index |
 | `profileId` | number\|null | foreign key → careProfiles (one care profile per plant) |
 
 ### events
@@ -121,7 +121,7 @@ Key-value store. Notable keys:
 
 ## Schema
 
-Current version: **3**.
+Current version: **4** (v4 added the hex coordinates `q`/`r` and the compound index `[sectionId+q+r]` when the row/column grid was replaced by a free hexagonal layout).
 
 Never modify an existing `db.version(N)` block - always add a new `db.version(N+1)`.
 
@@ -135,10 +135,7 @@ Sections are stored as a JSON array in the `settings` table under the key `'sect
 {
   "instanceId": "section-1",
   "name": "Fruit Trees",
-  "cols": 6,
-  "rows": 1,
-  "color": "#a8d5a2",
-  "showWires": false
+  "color": "#a8d5a2"
 }
 ```
 
@@ -146,10 +143,9 @@ Sections are stored as a JSON array in the `settings` table under the key `'sect
 |-------|-------|
 | `instanceId` | unique string, links `plants.sectionId` |
 | `name` | free text, user-editable |
-| `cols` | 1–8, number of cards per row |
-| `rows` | 1–8, fixed row count (1 = unbounded single row) |
 | `color` | hex, used as section background tint and plant card tint |
-| `showWires` | boolean, draws SVG horizontal lines between rows (trellis/cordon display) |
+
+Pre-hex fields (`cols`, `rows`, `showWires`) are stripped when sections are loaded (`getAllSections()`), so old stored data keeps loading cleanly. Since the hexagonal layout, placement within a section is controlled per plant via `plants.q`/`plants.r` - a section is a container, not a grid.
 
 `DEFAULT_SECTIONS` in `db.js` defines the seven sections seeded on first install.
 
@@ -157,23 +153,25 @@ Sections are stored as a JSON array in the `settings` table under the key `'sect
 
 ## Garden Map Rendering
 
-`GardenMap.svelte` owns the SVG canvas. All rendering is inlined - no separate renderer components. For each section it:
+`GardenMap.svelte` owns the SVG canvas; `src/lib/hex.js` provides the pointy-top hex math; `HexCard.svelte` renders one plant hexagon. The `viewBox` is the visible window (`vx, vy, GARDEN_WIDTH/zoom, totalHeight/zoom`), so `getScreenCTM()` maps pointer events to world coordinates at any zoom level.
 
-1. Filters `$plants` by `sectionId`, sorts by `sortOrder ?? id`
-2. Computes Y position reactively from accumulated section heights
-3. Draws a section background rect (tinted with `sec.color`)
-4. Renders a tappable section label → opens `SectionSheet`
-5. Iterates plants: renders either a dashed placeholder card or a real plant card
-6. Wire lines: `{#if sec.showWires && col === 0}` SVG `<line>` per row
+Layout algorithm:
 
-Constants: `CARD_W = 52`, `CARD_H = 60`, `ROW_GAP = 10`, `WIRE_COLOR = '#8d6e63'`, `GARDEN_WIDTH = 360`.
+1. Sections stack vertically; each section gets a header band (tap label → `SectionSheet`) and a tinted strip behind its cluster
+2. Per section, all plant `(q, r)` pairs are converted to pixel space via `axialToPixel()` and bounded; the cluster is centered in the strip (`offsetX/offsetY`) - no per-section scaling, wide clusters simply extend past the initial viewport and are reached by panning
+3. Each plant renders as a positioned `<g>` containing `HexCard`
+4. The drag ghost and snap highlight (`hoverHex`) draw in the target section's group during Arrange mode
 
-Plant card layers (bottom to top):
-1. Background rect - `colorToTint(plant.color)` fill
-2. Photo (if available) - clipped to card bounds
-3. Status dot - top-right corner, colored by **health system** (`good`/`fair`/`poor`/`bad`/`none`)
-4. Label fade gradient - transparent→white at card bottom
-5. Plant name text
+Plant hex card layers (bottom to top):
+1. Hexagon fill - `colorToTint(plant.color)`
+2. Photo (if available) - clipped to the hexagon via `hexPath()`
+3. Status dot - top vertex, colored by **health system** (`good`/`fair`/`poor`/`bad`/`none`)
+4. Plant name text - white halo via `paint-order: stroke`
+
+Interactions:
+- **Arrange mode** (edit toggle above the map): pointer drag & drop with green/red snap highlight; drops on occupied hexes snap to the nearest free hex (`findFreeHex()`); cross-section moves allowed; tapping an empty hex opens `AddPlantInline`
+- **Normal mode**: tapping a card navigates to the plant detail
+- **Zoom & pan**: pinch (0.5–4× anchored under the fingers), ctrl+wheel at the cursor, double-tap toggle, floating +/−/reset buttons; one-finger pan (horizontal at zoom 1, free while zoomed or arranging); plant drags take precedence over pan/pinch
 
 ---
 
