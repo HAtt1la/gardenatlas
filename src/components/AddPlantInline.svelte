@@ -1,19 +1,18 @@
 <script>
-  import { convertPlaceholder } from '../lib/db.js';
+  import { addPlantAtHex } from '../lib/db.js';
   import { loadPlants, showToast } from '../lib/stores.js';
   import { t } from '../lib/i18n.js';
   import { PLANT_COLORS } from '../lib/constants.js';
 
   export let onSuccess = null;
-  export let convertMode = false;
-  export let placeholderPlant = null;
-  export let rowSize = null;
+  export let sectionId = null;
+  export let q = 0;
+  export let r = 0;
 
   const ALL_COLORS = PLANT_COLORS;
 
   let newPlantName = '';
   let selectedColor = '#27ae60';
-  let selectedPosition = null;
 
   async function handleAddPlant() {
     if (!newPlantName.trim()) {
@@ -22,13 +21,8 @@
     }
 
     try {
-      if (convertMode && placeholderPlant) {
-        await convertPlaceholder(
-          placeholderPlant.id,
-          newPlantName.trim(),
-          selectedColor,
-          selectedPosition
-        );
+      if (sectionId) {
+        await addPlantAtHex(sectionId, q, r, newPlantName.trim(), selectedColor);
       }
 
       await loadPlants();
@@ -36,7 +30,6 @@
 
       newPlantName = '';
       selectedColor = '#27ae60';
-      selectedPosition = null;
 
       if (onSuccess) onSuccess();
     } catch (err) {
@@ -48,14 +41,13 @@
   function handleCancel() {
     newPlantName = '';
     selectedColor = '#27ae60';
-    selectedPosition = null;
     if (onSuccess) onSuccess();
   }
 </script>
 
 <div class="add-plant-form">
   <h3 class="form-title">
-    {$t('convertPlaceholder')}
+    {$t('addPlant') || 'Add Plant'}
   </h3>
 
   <div class="form-group">
@@ -67,21 +59,6 @@
       class="text-input"
     />
   </div>
-
-  {#if convertMode && rowSize != null && rowSize > 1}
-    <div class="form-group">
-      <label for="plant-position">{$t('columnPosition', { n: rowSize })}</label>
-      <input
-        type="number"
-        id="plant-position"
-        bind:value={selectedPosition}
-        min="1"
-        max={rowSize}
-        placeholder={$t('columnPositionHint')}
-        class="text-input"
-      />
-    </div>
-  {/if}
 
   <div class="form-group">
     <div class="form-label">{$t('plantColor')}</div>

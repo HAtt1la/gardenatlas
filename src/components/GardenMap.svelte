@@ -1,116 +1,423 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { plants, navigateToPlant, loadPlants, showToast } from '../lib/stores.js';
-  import { getSections, saveSections, validateColDecrease, applyColDecrease, applyColIncrease, validateRowDecrease, applyRowDecrease, applyRowIncrease, getMainPhotosForPlants } from '../lib/db.js';
+  import { getSections, saveSections, getMainPhotosForPlants, movePlantToHex } from '../lib/db.js';
   import { t } from '../lib/i18n.js';
   import { getAllPlantHealthStatuses, HEALTH_COLORS } from '../lib/health.js';
-  import AddPlantInline from './AddPlantInline.svelte';
+  import {
+    axialToPixel, pixelToAxial, hexPath, HEX_SIZE, HEX_W, HEX_H, findFreeHex
+  } from '../lib/hex.js';
+  import HexCard from './HexCard.svelte';
   import SectionSheet from './SectionSheet.svelte';
+  import AddPlantInline from './AddPlantInline.svelte';
 
-  const CARD_W = 52;
-  const CARD_H = 60;
-  const ROW_GAP = 10;
-  const WIRE_COLOR = '#8d6e63';
   const GARDEN_WIDTH = 360;
+  const SECTION_HEADER_H = 28;
+  const SECTION_GAP = 18;
+  const DRAG_THRESHOLD = 5;            // px until a press counts as a drag
+  const MIN_ZOOM = 0.5;
+  const MAX_ZOOM = 4;
 
   let plantStatuses = {};
   let plantThumbs = {};
   let sections = [];
   let sheetSection = null;
-  let convertingPlant = null;
+  let editMode = false;
+  let svgEl = null;                    // <svg> element
+
+  // ── zoom & pan: the viewBox is the visible window into the garden ─────
+  // World (svg-user) coordinates never change; zoom shrinks the window and
+  // (vx, vy) position it. Element height auto follows the aspect ratio, so
+  // getScreenCTM() maps pointer events straight to world coordinates and
+  // all drag/hit-test math works unchanged at any zoom level.
+  let view = { zoom: 1, vx: 0, vy: 0 };
+
+  // drag state: plant is being moved
+  let dragging = null;                 // { plant, svg, pointerId, startClient, moved }
+  let hoverHex = null;                 // { x, y, q, r, free } — snap target (section-group coords)
+  // "add plant" flow: clicked an empty hex
+  let addingAt = null;                 // { sectionId, q, r }
+  let suppressClickUntil = 0;          // timestamp — ignore the click right after a drag/pan/pinch
+  let lastTap = { t: 0, x: 0, y: 0 };  // double-tap guard so zooming never opens "add plant"
+
+  // pointer-tracking for pinch / pan
+  const pointers = new Map();          // pointerId → { x, y } (client coords)
+  let panInfo = null;                  // { id, startX, startY, vx0, vy0, moved }
+  let pinch = null;                    // { d0, z0, wx, wy, rect }
+
+  $: safePlants = $plants ?? [];
 
   $: sectionPlantsMap = (() => {
     const map = {};
     for (const sec of sections) {
-      const ps = $plants
-        .filter(p => p.sectionId === sec.instanceId)
-        .sort((a, b) => (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id));
-      const cols = sec.cols ?? 1;
-      map[sec.instanceId] = sec.rows != null ? ps.slice(0, sec.rows * cols) : ps;
+      map[sec.instanceId] = safePlants.filter(p => p.sectionId === sec.instanceId && p.type !== 'placeholder');
     }
     return map;
   })();
 
-  function sectionH(count, cols) {
-    return 28 + Math.max(1, Math.ceil(count / cols)) * (CARD_H + ROW_GAP);
-  }
-
-  $: sectionYs = (() => {
-    const ys = [];
-    let y = 20;
+  // Per-section layout: cluster bounds in hex space + render transform.
+  // Plants are drawn inside <g transform="translate(offset)">, so hit-testing
+  // subtracts the offset — no per-section scale: hexes are always full size
+  // and wide clusters simply extend past the initial viewport (pan/zoom).
+  $: sectionLayouts = (() => {
+    const layouts = [];
+    let y = 8;
     for (const sec of sections) {
-      ys.push(y);
       const ps = sectionPlantsMap[sec.instanceId] ?? [];
-      y += sectionH(ps.length, sec.cols ?? 1) + 20;
+      const pts = ps.map(p => ({ plant: p, ...axialToPixel(p.q ?? 0, p.r ?? 0) }));
+
+      let minX = -HEX_W / 2, maxX = HEX_W / 2, minY = -HEX_H / 2, maxY = HEX_H / 2;
+      if (pts.length) {
+        minX = Infinity; maxX = -Infinity; minY = Infinity; maxY = -Infinity;
+        for (const pt of pts) {
+          minX = Math.min(minX, pt.x - HEX_W / 2);
+          maxX = Math.max(maxX, pt.x + HEX_W / 2);
+          minY = Math.min(minY, pt.y - HEX_H / 2);
+          maxY = Math.max(maxY, pt.y + HEX_H / 2);
+        }
+      }
+      const contentW = Math.max(80, maxX - minX);
+      const contentH = Math.max(70, maxY - minY);
+      const offsetX = (GARDEN_WIDTH - contentW) / 2 - minX;
+      const offsetY = y + SECTION_HEADER_H - minY;
+      const height = SECTION_HEADER_H + contentH;
+
+      layouts.push({
+        section: sec, y, height, offsetX, offsetY, plants: pts,
+        bgX: Math.min(0, offsetX + minX),        // section background extent
+        bgR: Math.max(GARDEN_WIDTH, offsetX + maxX)
+      });
+      y += height + SECTION_GAP;
     }
-    return ys;
+    return layouts;
   })();
 
-  $: dynamicHeight = (() => {
-    if (sections.length === 0) return 800;
-    const last = sections.length - 1;
-    const sec = sections[last];
-    const ps = sectionPlantsMap[sec.instanceId] ?? [];
-    return sectionYs[last] + sectionH(ps.length, sec.cols ?? 1) + 20;
+  // Overall horizontal extent of the garden (may exceed the viewport width)
+  $: extX = (() => {
+    let min = 0, max = GARDEN_WIDTH;
+    for (const l of sectionLayouts) {
+      min = Math.min(min, l.bgX);
+      max = Math.max(max, l.bgR);
+    }
+    return { min, max };
   })();
 
-  $: convertingRowSize = (() => {
-    if (!convertingPlant) return null;
-    const sec = sections.find(s => s.instanceId === convertingPlant.sectionId);
-    const cols = sec?.cols ?? 1;
-    const ps = sec ? (sectionPlantsMap[sec.instanceId] ?? []) : [];
-    const idx = ps.findIndex(p => p.id === convertingPlant.id);
-    if (idx < 0) return cols;
-    const row = Math.floor(idx / cols);
-    return Math.min(cols, ps.length - row * cols);
-  })();
+  $: totalHeight = sectionLayouts.length
+    ? sectionLayouts[sectionLayouts.length - 1].y + sectionLayouts[sectionLayouts.length - 1].height + 20
+    : 220;
+
+  // Window size in world units for the current zoom
+  $: vw = GARDEN_WIDTH / view.zoom;
+  $: vh = totalHeight / view.zoom;
+
+  onMount(() => {
+    const onWheel = (e) => handleWheel(e);
+    // non-passive so we can preventDefault and take over ctrl+wheel zoom
+    svgEl?.addEventListener('wheel', onWheel, { passive: false });
+    return () => svgEl?.removeEventListener('wheel', onWheel);
+  });
 
   onMount(async () => {
     sections = await getSections();
   });
 
   $: if ($plants) {
-    getAllPlantHealthStatuses($plants).then(s => { plantStatuses = s; });
+    getAllPlantHealthStatuses(safePlants).then(s => { plantStatuses = s; });
     loadThumbnails();
   }
 
   async function loadThumbnails() {
-    for (const url of Object.values(plantThumbs)) URL.revokeObjectURL(url);
-    const ids = $plants.filter(p => p.type !== 'placeholder').map(p => p.id);
+    const ids = safePlants.filter(p => p.type !== 'placeholder').map(p => p.id);
     const photos = await getMainPhotosForPlants(ids);
     const newThumbs = {};
     for (const [plantId, photo] of Object.entries(photos)) {
       if (photo?.data) newThumbs[plantId] = URL.createObjectURL(photo.data);
     }
+    // swap after building new URLs so revoked ones are never in use
+    const old = plantThumbs;
     plantThumbs = newThumbs;
+    for (const url of Object.values(old)) URL.revokeObjectURL(url);
   }
 
   onDestroy(() => {
     for (const url of Object.values(plantThumbs)) URL.revokeObjectURL(url);
   });
 
-  function colorToTint(hex) {
-    if (!hex) return 'rgba(255,255,255,0.82)';
-    const r = parseInt(hex.slice(1,3),16);
-    const g = parseInt(hex.slice(3,5),16);
-    const b = parseInt(hex.slice(5,7),16);
-    return `rgba(${r},${g},${b},0.18)`;
+  // ── coordinate helpers ─────────────────────────────────────────────────
+  /** Convert a browser pointer event to SVG-world coords (viewBox-aware). */
+  function eventToSvg(svg, clientX, clientY) {
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const ctm = svg.getScreenCTM();
+    return ctm ? pt.matrixTransform(ctm.inverse()) : { x: 0, y: 0 };
   }
 
-  function handlePlantClick(plant, event) {
-    event.stopPropagation();
-    navigateToPlant(plant.id);
+  /** Clamp a desired window x so content stays reachable. */
+  function clampVx(v, vwNow) {
+    const span = extX.max - extX.min;
+    if (vwNow >= span) return (extX.min + extX.max - vwNow) / 2;
+    return Math.min(Math.max(v, extX.min - 12), extX.max - vwNow + 12);
   }
 
-  function handlePlaceholderClick(plant, event) {
-    event.stopPropagation();
-    convertingPlant = plant;
+  /** Clamp a desired window y so content stays reachable. */
+  function clampVy(v, vhNow) {
+    if (vhNow >= totalHeight) return (totalHeight - vhNow) / 2;
+    return Math.min(Math.max(v, 0), totalHeight - vhNow);
   }
 
-  function handleConvertCancel() {
-    convertingPlant = null;
+  /** Zoom keeping the world point `sp` at its current screen position. */
+  function setZoomAt(sp, zNew) {
+    const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zNew));
+    if (z === view.zoom) return;
+    const vwNow = GARDEN_WIDTH / z;
+    const vhNow = totalHeight / z;
+    view = {
+      zoom: z,
+      vx: clampVx(sp.x - (sp.x - view.vx) * view.zoom / z, vwNow),
+      vy: clampVy(sp.y - (sp.y - view.vy) * view.zoom / z, vhNow)
+    };
   }
 
+  function zoomBy(factor) {
+    const cx = view.vx + vw / 2;
+    const cy = view.vy + vh / 2;
+    setZoomAt({ x: cx, y: cy }, view.zoom * factor);
+  }
+
+  function resetView() {
+    view = { zoom: 1, vx: 0, vy: 0 };
+  }
+
+  function handleWheel(event) {
+    // plain wheel = page scroll, unless a modifier is held or already zoomed
+    if (!(event.ctrlKey || event.metaKey || event.altKey) && view.zoom <= 1) return;
+    event.preventDefault();
+    const sp = eventToSvg(svgEl, event.clientX, event.clientY);
+    setZoomAt(sp, view.zoom * Math.exp(-event.deltaY * 0.0022));
+  }
+
+  function handleDblClick(event) {
+    const sp = eventToSvg(svgEl, event.clientX, event.clientY);
+    setZoomAt(sp, view.zoom > 1.01 ? 1 : 2.4);
+    suppressClickUntil = Date.now() + 350;
+  }
+
+  // ── find the section + hex under an SVG point ─────────────────────────
+  function svgPointToHex(sp) {
+    const layout = sectionLayouts.find(l => sp.y >= l.y && sp.y <= l.y + l.height);
+    if (!layout) return null;
+    const hx = sp.x - layout.offsetX;
+    const hy = sp.y - layout.offsetY;
+    const { q, r } = pixelToAxial(hx, hy);
+    return { layout, q, r };
+  }
+
+  function isOccupied(sectionId, q, r, excludePlantId = null) {
+    return (sectionPlantsMap[sectionId] ?? [])
+      .some(p => p.id !== excludePlantId && (p.q ?? 0) === q && (p.r ?? 0) === r);
+  }
+
+  // ── drag & drop (pointer events: mouse + touch) ───────────────────────
+  function handleCardPointerDown(plant, event) {
+    if (!editMode) return;
+    event.preventDefault();
+    event.stopPropagation();             // keep the map pan/pinch out of it
+    const svg = event.currentTarget.ownerSVGElement;
+    if (!svg) return;
+    try { svg.setPointerCapture(event.pointerId); } catch { /* ignore */ }
+    dragging = {
+      plant, svg, moved: false,
+      pointerId: event.pointerId,
+      startClient: { x: event.clientX, y: event.clientY }
+    };
+  }
+
+  function handleSvgPointerDown(event) {
+    if (dragging) return;                // a plant drag owns all gestures
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    try { svgEl.setPointerCapture(event.pointerId); } catch { /* ignore */ }
+    if (pointers.size >= 2) {
+      if (!pinch) startPinch();
+    } else {
+      panInfo = {
+        id: event.pointerId,
+        startX: event.clientX, startY: event.clientY,
+        vx0: view.vx, vy0: view.vy,
+        moved: false
+      };
+    }
+  }
+
+  function startPinch() {
+    const ps = [...pointers.values()];
+    const rect = svgEl.getBoundingClientRect();
+    const midX = (ps[0].x + ps[1].x) / 2;
+    const midY = (ps[0].y + ps[1].y) / 2;
+    const sp = eventToSvg(svgEl, midX, midY);   // world point under the fingers
+    pinch = {
+      d0: Math.hypot(ps[0].x - ps[1].x, ps[0].y - ps[1].y) || 1,
+      z0: view.zoom,
+      wx: sp.x, wy: sp.y,
+      rect
+    };
+    panInfo = null;
+  }
+
+  function updatePinch() {
+    const ps = [...pointers.values()];
+    if (ps.length < 2) return;
+    const d = Math.hypot(ps[0].x - ps[1].x, ps[0].y - ps[1].y);
+    const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinch.z0 * d / pinch.d0));
+    const vwNow = GARDEN_WIDTH / z;
+    const vhNow = totalHeight / z;
+    const relX = (ps[0].x + ps[1].x) / 2 - pinch.rect.left;
+    const relY = (ps[0].y + ps[1].y) / 2 - pinch.rect.top;
+    view = {
+      zoom: z,
+      vx: clampVx(pinch.wx - relX * (vwNow / pinch.rect.width), vwNow),
+      vy: clampVy(pinch.wy - relY * (vhNow / pinch.rect.height), vhNow)
+    };
+  }
+
+  function updatePan(event) {
+    const rect = svgEl.getBoundingClientRect();
+    const vwNow = GARDEN_WIDTH / view.zoom;
+    const vhNow = totalHeight / view.zoom;
+    const du = (event.clientX - panInfo.startX) * (vwNow / rect.width);
+    const dv = (event.clientY - panInfo.startY) * (vhNow / rect.height);
+    // vertical map panning only when the page isn't scrolling instead
+    const canPanY = editMode || view.zoom > 1;
+    view = {
+      zoom: view.zoom,
+      vx: clampVx(panInfo.vx0 - du, vwNow),
+      vy: clampVy(canPanY ? panInfo.vy0 - dv : panInfo.vy0, vhNow)
+    };
+    if (Math.abs(du) > 2 || (canPanY && Math.abs(dv) > 2)) panInfo.moved = true;
+  }
+
+  function handleSvgPointerMove(event) {
+    const entry = pointers.get(event.pointerId);
+    if (entry) {
+      entry.x = event.clientX;
+      entry.y = event.clientY;
+    }
+
+    if (dragging) {
+      const start = dragging.startClient;
+      if (!dragging.moved &&
+          Math.abs(event.clientX - start.x) <= DRAG_THRESHOLD &&
+          Math.abs(event.clientY - start.y) <= DRAG_THRESHOLD) return;
+      dragging.moved = true;
+
+      const hit = svgPointToHex(eventToSvg(dragging.svg, event.clientX, event.clientY));
+      if (!hit) {
+        hoverHex = null;
+        return;
+      }
+      const free = !isOccupied(hit.layout.section.instanceId, hit.q, hit.r, dragging.plant.id);
+      hoverHex = { ...axialToPixel(hit.q, hit.r), q: hit.q, r: hit.r, free, layout: hit.layout };
+      return;
+    }
+
+    if (!entry) return;
+
+    if (pointers.size >= 2) {
+      if (pinch) updatePinch();
+      else startPinch();
+    } else if (panInfo && panInfo.id === event.pointerId) {
+      updatePan(event);
+    }
+  }
+
+  async function handleSvgPointerUp(event) {
+    pointers.delete(event.pointerId);
+
+    if (pinch && pointers.size < 2) {
+      pinch = null;
+      suppressClickUntil = Date.now() + 350;
+    }
+    if (panInfo && panInfo.id === event.pointerId) {
+      if (panInfo.moved) suppressClickUntil = Date.now() + 350;
+      panInfo = null;
+    }
+
+    if (!dragging) return;
+    if (event.pointerId !== dragging.pointerId) return; // a stray finger lifted
+    const { plant, moved } = dragging;
+    dragging = null;
+
+    if (!moved) return; // simple press — nothing to do
+    // ignore the synthetic click that follows the pointerup
+    suppressClickUntil = Date.now() + 350;
+
+    const hit = svgPointToHex(eventToSvg(svgEl, event.clientX, event.clientY));
+    hoverHex = null;
+
+    const sectionId = hit
+      ? hit.layout.section.instanceId
+      : plant.sectionId;
+    let q = hit ? hit.q : (plant.q ?? 0);
+    let r = hit ? hit.r : (plant.r ?? 0);
+
+    // if the target is taken, park the plant on the nearest free hex
+    if (isOccupied(sectionId, q, r, plant.id)) {
+      const occupied = new Set(
+        (sectionPlantsMap[sectionId] ?? [])
+          .filter(p => p.id !== plant.id)
+          .map(p => `${p.q ?? 0},${p.r ?? 0}`)
+      );
+      const free = findFreeHex(occupied, q, r);
+      if (!free) return;
+      q = free.q;
+      r = free.r;
+    }
+
+    // skip no-op moves
+    if (sectionId === plant.sectionId && q === (plant.q ?? 0) && r === (plant.r ?? 0)) return;
+
+    await movePlantToHex(plant.id, sectionId, q, r);
+    await loadPlants();
+  }
+
+  function handleSvgPointerCancel(event) {
+    pointers.delete(event.pointerId);
+    if (pinch && pointers.size < 2) pinch = null;
+    if (panInfo && panInfo.id === event.pointerId) panInfo = null;
+    if (dragging && event.pointerId === dragging.pointerId) {
+      dragging = null;
+      hoverHex = null;
+    }
+  }
+
+  // ── add plant on empty hex ─────────────────────────────────────────────
+  async function handleSvgClick(event) {
+    if (!editMode || Date.now() < suppressClickUntil) return;
+    const now = Date.now();
+    if (now - lastTap.t < 350 &&
+        Math.hypot(event.clientX - lastTap.x, event.clientY - lastTap.y) < 30) {
+      // double-tap: the dblclick handler zooms, don't open "add plant"
+      lastTap = { t: 0, x: 0, y: 0 };
+      return;
+    }
+    lastTap = { t: now, x: event.clientX, y: event.clientY };
+
+    const hit = svgPointToHex(eventToSvg(event.currentTarget, event.clientX, event.clientY));
+    if (!hit) return;
+    if (isOccupied(hit.layout.section.instanceId, hit.q, hit.r)) return;
+    addingAt = { sectionId: hit.layout.section.instanceId, q: hit.q, r: hit.r };
+  }
+
+  function handleKeydown(event) {
+    if (event.key !== 'Escape') return;
+    if (addingAt) { addingAt = null; return; }
+    if (sheetSection) { sheetSection = null; return; }
+    if (dragging) { dragging = null; hoverHex = null; return; }
+    if (view.zoom !== 1) { resetView(); return; }
+    if (editMode) editMode = false;
+  }
+
+  // ── section sheet ─────────────────────────────────────────────────────
   async function handleSheetSave(updated) {
     sections = sections.map(s => s.instanceId === updated.instanceId ? updated : s);
     await saveSections(sections);
@@ -118,154 +425,152 @@
     sheetSection = null;
   }
 
-  async function handleColChange(newCols) {
-    const sec = sheetSection;
-    const oldCols = sec.cols ?? 1;
-    if (newCols < oldCols) {
-      const v = await validateColDecrease(sec.instanceId, oldCols, newCols);
-      if (!v.ok) return v;
-      await applyColDecrease(sec.instanceId, oldCols, newCols);
-    } else {
-      await applyColIncrease(sec.instanceId, oldCols, newCols);
-    }
-    sheetSection = { ...sheetSection, cols: newCols };
-    await loadPlants();
-    return { ok: true };
+  function toggleEditMode() {
+    editMode = !editMode;
+    dragging = null;
+    hoverHex = null;
   }
-
-  async function handleRowChange(newRows) {
-    const sec = sheetSection;
-    const oldRows = sec.rows ?? 1;
-    const cols = sec.cols ?? 1;
-    if (newRows < oldRows) {
-      const v = await validateRowDecrease(sec.instanceId, cols, oldRows, newRows);
-      if (!v.ok) return v;
-      await applyRowDecrease(sec.instanceId, cols, oldRows, newRows);
-    } else {
-      await applyRowIncrease(sec.instanceId, cols, newRows, oldRows);
-    }
-    sheetSection = { ...sheetSection, rows: newRows };
-    await loadPlants();
-    return { ok: true };
-  }
-
 </script>
 
 <div class="map-container">
-  {#if convertingPlant}
-    <div class="convert-overlay"
-      role="presentation"
-      aria-hidden="true"
-      on:click={handleConvertCancel}
-      on:keydown={(e) => e.key === 'Escape' && handleConvertCancel()}>
-      <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-      <div class="convert-modal"
-        role="dialog"
-        on:click|stopPropagation
-        on:keydown|stopPropagation>
-        <AddPlantInline
-          convertMode={true}
-          placeholderPlant={convertingPlant}
-          rowSize={convertingRowSize}
-          onSuccess={handleConvertCancel}
-        />
-      </div>
-    </div>
-  {/if}
-
   {#if sheetSection}
     <SectionSheet
       section={sheetSection}
       onClose={() => sheetSection = null}
       onSave={handleSheetSave}
-      onColChange={handleColChange}
-      onRowChange={handleRowChange}
     />
   {/if}
 
-  <svg viewBox="0 0 {GARDEN_WIDTH} {dynamicHeight}" class="garden-svg">
-    <defs>
-      <linearGradient id="label-fade" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="white" stop-opacity="0" />
-        <stop offset="100%" stop-color="white" stop-opacity="0.88" />
-      </linearGradient>
-    </defs>
-    <!-- Background -->
-    <rect x="0" y="0" width={GARDEN_WIDTH} height={dynamicHeight} fill="#eef6ee" />
+  {#if addingAt}
+    <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+    <div class="convert-overlay"
+      role="presentation"
+      aria-hidden="true"
+      on:click={() => addingAt = null}
+      on:keydown={(e) => e.key === 'Escape' && (addingAt = null)}>
+      <div class="convert-modal"
+        role="dialog"
+        tabindex="-1"
+        on:click|stopPropagation
+        on:keydown|stopPropagation>
+        <AddPlantInline
+          sectionId={addingAt.sectionId}
+          q={addingAt.q}
+          r={addingAt.r}
+          onSuccess={() => addingAt = null}
+        />
+      </div>
+    </div>
+  {/if}
 
-    {#each sections as sec, secIdx}
-      {@const ps = sectionPlantsMap[sec.instanceId] ?? []}
-      {@const secY = sectionYs[secIdx] ?? 0}
-      {@const cols = sec.cols ?? 1}
-      {@const step = (GARDEN_WIDTH - 8) / cols}
-      {@const x0 = 4 + step / 2}
+  <div class="edit-controls">
+    <button class="edit-btn {editMode ? 'active' : ''}" on:click={toggleEditMode}>
+      {editMode ? '✓ ' + $t('done') : '✏️ ' + $t('arrange')}
+    </button>
+    {#if editMode}
+      <span class="edit-hint">{$t('arrangeHint')}</span>
+    {/if}
+  </div>
 
-      {#if secIdx > 0}
-        <line x1="0" y1={secY - 8} x2={GARDEN_WIDTH} y2={secY - 8} stroke="#b2d8b2" stroke-width="1.5" stroke-dasharray="5,4" />
-      {/if}
+  <div class="map-wrap">
+    <!-- svelte-ignore a11y-no-static-element-interactions a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
+    <svg
+      bind:this={svgEl}
+      viewBox="{view.vx.toFixed(2)} {view.vy.toFixed(2)} {vw.toFixed(2)} {vh.toFixed(2)}"
+      class="garden-svg {editMode ? 'editing' : ''} {view.zoom > 1 ? 'zoomed' : ''}"
+      role="img"
+      aria-label={$t('appName')}
+      on:click={handleSvgClick}
+      on:dblclick={handleDblClick}
+      on:pointerdown={handleSvgPointerDown}
+      on:pointermove={handleSvgPointerMove}
+      on:pointerup={handleSvgPointerUp}
+      on:pointercancel={handleSvgPointerCancel}
+      on:keydown={handleKeydown}
+    >
+      {#each sectionLayouts as layout, idx (layout.section.instanceId)}
+        {@const sec = layout.section}
+        {@const secY = layout.y}
 
-      <!-- Section background -->
-      {@const secH = sectionH(ps.length, cols)}
-      <rect x="0" y={secY} width={GARDEN_WIDTH} height={secH} fill={sec.color ?? '#a8d5a2'} opacity="0.12" />
-
-      <!-- Section label - tap to edit -->
-      <g class="section-label-btn"
-        on:click={() => sheetSection = sec}
-        on:keydown={(e) => e.key === 'Enter' && (sheetSection = sec)}
-        role="button" tabindex="0">
-        <rect x="0" y={secY} width={GARDEN_WIDTH * 0.75} height="22" rx="0" fill="transparent" />
-        <text x="6" y={secY + 14} class="section-label">{sec.name}</text>
-      </g>
-
-      {#each ps as plant, i}
-        {@const col = i % cols}
-        {@const row = Math.floor(i / cols)}
-        {@const cx = x0 + col * step}
-        {@const ty = secY + 28 + row * (CARD_H + ROW_GAP)}
-        {#if sec.showWires && col === 0}
-          <line x1="4" y1={ty + CARD_H/2} x2={GARDEN_WIDTH - 4} y2={ty + CARD_H/2}
-            stroke={WIRE_COLOR} stroke-width="1.5" opacity="0.3" />
+        {#if idx > 0}
+          <line x1={extX.min} y1={secY - SECTION_GAP / 2} x2={extX.max} y2={secY - SECTION_GAP / 2}
+            stroke="#b2d8b2" stroke-width="1.5" stroke-dasharray="5,4" />
         {/if}
-        {#if plant.type === 'placeholder'}
-          <g class="plant-marker placeholder-marker"
-            on:click={(e) => handlePlaceholderClick(plant, e)}
-            on:keydown={(e) => e.key === 'Enter' && handlePlaceholderClick(plant, e)}
-            role="button" tabindex="0">
-            <rect x={cx - CARD_W/2} y={ty} width={CARD_W} height={CARD_H} rx="7" fill="rgba(200,200,200,0.15)" stroke="#bbb" stroke-width="1" stroke-dasharray="4,3" />
-            <text x={cx} y={ty + CARD_H * 0.55} class="placeholder-label">{$t('placeholderLabel')}</text>
-          </g>
-        {:else}
-          {@const sc = HEALTH_COLORS[plantStatuses[plant.id]?.status] ?? HEALTH_COLORS.none}
-          {@const bg = colorToTint(plant.color)}
-          <g class="plant-marker"
-            on:click={(e) => handlePlantClick(plant, e)}
-            on:keydown={(e) => e.key === 'Enter' && handlePlantClick(plant, e)}
-            role="button" tabindex="0">
-            <rect x={cx - CARD_W/2} y={ty} width={CARD_W} height={CARD_H} rx="7" fill={bg} stroke="#ccc" stroke-width="0.5" class="card-bg" />
-            {#if plantThumbs[plant.id]}
-              <defs>
-                <clipPath id="card-clip-{plant.id}">
-                  <rect x={cx - CARD_W/2} y={ty} width={CARD_W} height={CARD_H - 14} rx="7" />
-                </clipPath>
-              </defs>
-              <image
-                href={plantThumbs[plant.id]}
-                x={cx - CARD_W/2} y={ty}
-                width={CARD_W} height={CARD_H - 14}
-                preserveAspectRatio="xMidYMid slice"
-                clip-path="url(#card-clip-{plant.id})"
-                class="card-photo" />
-            {/if}
-            <rect x={cx + CARD_W/2 - 12} y={ty + 3} width="10" height="10" rx="3" fill={sc} class="status-dot" />
-            <rect x={cx - CARD_W/2 + 1} y={ty + CARD_H - 16} width={CARD_W - 2} height="15" rx="0" fill="url(#label-fade)" />
-            <text x={cx} y={ty + CARD_H - 4} class="card-label"
-              textLength={plant.name.length > 6 ? CARD_W - 6 : null}
-              lengthAdjust="spacingAndGlyphs">{plant.name}</text>
-          </g>
-        {/if}
+
+        <!-- Section background -->
+        <rect x={layout.bgX} y={secY} width={layout.bgR - layout.bgX} height={layout.height}
+          fill={sec.color ?? '#a8d5a2'} opacity="0.12" rx="8" />
+
+        <!-- Section label - tap to edit -->
+        <g class="section-label-btn"
+          on:click={() => sheetSection = sec}
+          on:keydown={(e) => e.key === 'Enter' && (sheetSection = sec)}
+          role="button" tabindex="0">
+          <rect x="4" y={secY + 2} width={GARDEN_WIDTH - 8} height={SECTION_HEADER_H - 4} rx="4" fill="transparent" />
+          <text x="10" y={secY + 17} class="section-label">{sec.name}</text>
+        </g>
+
+        <!-- Plant cluster -->
+        <g transform="translate({layout.offsetX},{layout.offsetY})">
+          {#if editMode && hoverHex && hoverHex.layout === layout}
+            <!-- snap highlight under the cards -->
+            <path
+              d={hexPath(HEX_SIZE)}
+              transform="translate({hoverHex.x},{hoverHex.y})"
+              fill={hoverHex.free ? 'rgba(45,90,39,0.25)' : 'rgba(231,76,60,0.35)'}
+              stroke={hoverHex.free ? '#2d5a27' : '#e74c3c'}
+              stroke-width="2" />
+          {/if}
+
+          {#each layout.plants as pt (pt.plant.id)}
+            {@const status = HEALTH_COLORS[plantStatuses[pt.plant.id]?.status] ?? HEALTH_COLORS.none}
+            <g
+              class="plant-marker {editMode ? 'draggable' : ''}"
+              class:drag-source={dragging?.plant?.id === pt.plant.id}
+              transform="translate({pt.x},{pt.y})"
+              on:click={(e) => {
+                if (Date.now() < suppressClickUntil) return;
+                if (!editMode) { e.stopPropagation(); navigateToPlant(pt.plant.id); }
+              }}
+              on:pointerdown={(e) => handleCardPointerDown(pt.plant, e)}
+              on:keydown={(e) => e.key === 'Enter' && !editMode && navigateToPlant(pt.plant.id)}
+              role="button"
+              tabindex="0">
+              <HexCard plant={pt.plant} thumb={plantThumbs[pt.plant.id]} status={status} />
+            </g>
+          {/each}
+
+          <!-- drag ghost: snapped to hover target -->
+          {#if dragging?.plant && hoverHex && hoverHex.layout === layout}
+            {@const status = HEALTH_COLORS[dragging.plant.id]?.status}
+            <g class="drag-ghost" transform="translate({hoverHex.x},{hoverHex.y})" pointer-events="none">
+              <HexCard
+                plant={dragging.plant}
+                thumb={plantThumbs[dragging.plant.id]}
+                status={HEALTH_COLORS[status] ?? HEALTH_COLORS.none}
+                dragging={true} />
+            </g>
+          {/if}
+        </g>
       {/each}
-    {/each}
-  </svg>
+    </svg>
+
+    <!-- Zoom controls -->
+    <div class="zoom-controls">
+      <button
+        on:click={() => zoomBy(1 / 1.6)}
+        disabled={view.zoom <= MIN_ZOOM + 0.01}
+        aria-label={$t('zoomOut')} title={$t('zoomOut')}>−</button>
+      <button
+        on:click={() => zoomBy(1.6)}
+        disabled={view.zoom >= MAX_ZOOM - 0.01}
+        aria-label={$t('zoomIn')} title={$t('zoomIn')}>+</button>
+      <button
+        on:click={resetView}
+        disabled={view.zoom === 1 && view.vx === 0 && view.vy === 0}
+        aria-label={$t('resetView')} title={$t('resetView')}>⌖</button>
+    </div>
+  </div>
 
   <!-- Legend -->
   <div class="legend">
@@ -284,10 +589,27 @@
     align-items: stretch;
   }
 
+  .map-wrap {
+    position: relative;
+  }
+
   .garden-svg {
     width: 100%;
     height: auto;
     display: block;
+    user-select: none;
+    -webkit-user-select: none;
+    background: #eef6ee; /* covers the element box even outside the viewBox */
+    touch-action: pan-y; /* page scrolls vertically; horizontal drag + pinch come to us */
+  }
+
+  .garden-svg.editing,
+  .garden-svg.zoomed {
+    touch-action: none; /* we own all pointer gestures now */
+  }
+
+  .garden-svg.editing {
+    cursor: grab;
   }
 
   .section-label {
@@ -307,22 +629,87 @@
   }
 
   .plant-marker { cursor: pointer; }
-  .plant-marker:hover .card-bg { filter: brightness(0.93); }
+  .plant-marker :global(.hex-card), .plant-marker { transition: opacity 0.15s; }
+  .plant-marker:hover { opacity: 0.9; }
   .plant-marker:focus { outline: none; }
-  .plant-marker:focus .card-bg { stroke: #2d5a27; stroke-width: 2; }
-  .placeholder-marker { cursor: pointer; opacity: 0.7; }
-  .placeholder-marker:hover { opacity: 1; }
-  .placeholder-label { font-size: 20px; text-anchor: middle; dominant-baseline: middle; fill: #aaa; font-weight: 700; pointer-events: none; }
-  .card-photo { pointer-events: none; }
-  .card-label { font-size: 10px; text-anchor: middle; dominant-baseline: auto; fill: #111; font-weight: 700; pointer-events: none; }
+  .plant-marker:focus :global(path:first-of-type) { stroke: #2d5a27; stroke-width: 2; }
 
-  @media (prefers-color-scheme: dark) {
-    .garden-svg { filter: none; }
-    .card-label { fill: #111 !important; }
-    .section-label { fill: #2d5a27 !important; }
-    .placeholder-label { fill: #aaa !important; }
-    .legend { background: #1e1e1e; border-color: #333; }
-    .legend-item { color: #ccc; }
+  .plant-marker.draggable {
+    cursor: grab;
+  }
+
+  .plant-marker.drag-source {
+    opacity: 0.25;
+  }
+
+  .drag-ghost {
+    pointer-events: none;
+    opacity: 0.95;
+  }
+
+  .edit-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    background: white;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  .edit-btn {
+    padding: 0.375rem 0.875rem;
+    background: #f8f9fa;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .edit-btn.active {
+    background: #2d5a27;
+    color: white;
+    border-color: #2d5a27;
+  }
+
+  .edit-hint {
+    font-size: 0.8125rem;
+    color: #666;
+  }
+
+  /* Zoom controls */
+  .zoom-controls {
+    position: absolute;
+    right: 10px;
+    bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 5;
+  }
+
+  .zoom-controls button {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(45, 90, 39, 0.35);
+    background: rgba(255, 255, 255, 0.92);
+    color: #2d5a27;
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .zoom-controls button:disabled {
+    opacity: 0.4;
+    cursor: default;
   }
 
   /* Legend */
@@ -352,7 +739,7 @@
     flex-shrink: 0;
   }
 
-  /* Convert placeholder overlay */
+  /* Add-plant overlay */
   .convert-overlay {
     position: fixed;
     inset: 0;

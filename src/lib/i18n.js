@@ -177,6 +177,14 @@ const translations = {
     updateLater: 'Later',
 
     // Garden Layout
+    arrange: 'Arrange',
+    done: 'Done',
+    arrangeHint: 'Drag a plant to move it, tap an empty spot to plant a new one',
+    zoomIn: 'Zoom in',
+    zoomOut: 'Zoom out',
+    resetView: 'Reset view',
+
+    // Garden Layout
     gardenLayout: 'Garden Layout',
     gardenLayoutDesc: 'Customize columns and rows for each section',
     fruitTreeCols: 'Fruit tree columns',
@@ -188,9 +196,9 @@ const translations = {
     addBlankSlot: 'Add blank slot',
     convertPlaceholder: 'Identify this plant',
     placeholderLabel: '?',
-    markAsRemoved: 'Mark as removed',
-    markAsRemovedConfirm: 'Convert this plant to an empty slot? All its events and photos will be deleted.',
-    markedAsRemoved: 'Plant converted to empty slot',
+    markAsRemoved: 'Remove plant',
+    markAsRemovedConfirm: 'Delete this plant together with all its events and photos? This cannot be undone.',
+    markedAsRemoved: 'Plant removed',
     layoutColsBlocked: 'Cannot decrease columns: {n} plant(s) must be converted to empty slots first.',
     layoutRowsBlocked: 'Cannot decrease rows: {n} plant(s) must be converted to empty slots first.',
 
@@ -443,6 +451,14 @@ const translations = {
     updateLater: 'Később',
 
     // Garden Layout
+    arrange: 'Elrendezés',
+    done: 'Kész',
+    arrangeHint: 'Húzd a növényeket az áthelyezéshez, kattints üres helyre az új növényhez',
+    zoomIn: 'Nagyítás',
+    zoomOut: 'Kicsinyítés',
+    resetView: 'Nézet visszaállítása',
+
+    // Garden Layout
     gardenLayout: 'Kert elrendezése',
     gardenLayoutDesc: 'Oszlopok és sorok testreszabása minden szakaszhoz',
     fruitTreeCols: 'Gyümölcsfa oszlopok',
@@ -454,9 +470,9 @@ const translations = {
     addBlankSlot: 'Üres hely hozzáadása',
     convertPlaceholder: 'Növény azonosítása',
     placeholderLabel: '?',
-    markAsRemoved: 'Megjelölés eltávolítottként',
-    markAsRemovedConfirm: 'Üres hellyé alakítod ezt a növényt? Minden esemény és fotó törlődik.',
-    markedAsRemoved: 'Növény üres hellyé alakítva',
+    markAsRemoved: 'Növény eltávolítása',
+    markAsRemovedConfirm: 'Törlöd ezt a növényt minden eseményével és fotójával együtt? Nem visszavonható.',
+    markedAsRemoved: 'Növény eltávolítva',
     layoutColsBlocked: 'Nem lehet csökkenteni az oszlopokat: {n} növényt előbb üres hellyé kell alakítani.',
     layoutRowsBlocked: 'Nem lehet csökkenteni a sorokat: {n} növényt előbb üres hellyé kell alakítani.',
 

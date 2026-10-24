@@ -1,6 +1,6 @@
 <script>
   import { selectedPlant, plantEvents, plantForecast, plantHealth, loadPlantDetails, loadPlants, showToast, navigateToMap } from '../lib/stores.js';
-  import { updatePlant, deleteEvent, convertToPlaceholder, isLabelTaken, EVENT_TYPES, getCareProfiles } from '../lib/db.js';
+  import { updatePlant, deleteEvent, removePlant, isLabelTaken, EVENT_TYPES, getCareProfiles } from '../lib/db.js';
   import { t } from '../lib/i18n.js';
   import { PLANT_COLORS } from '../lib/constants.js';
   import { HEALTH_COLORS } from '../lib/health.js';
@@ -34,19 +34,19 @@
     labelError = '';
   }
 
-  // Allow convert-to-placeholder for section plants
+  // Allow remove plant for section plants
   $: canMarkRemoved = $selectedPlant?.type === 'plant';
 
   async function handleMarkAsRemoved() {
     if (!confirm($t('markAsRemovedConfirm'))) return;
     try {
-      await convertToPlaceholder($selectedPlant.id);
+      await removePlant($selectedPlant.id);
       await loadPlants();
       showToast($t('markedAsRemoved'), 'success');
       navigateToMap();
     } catch (err) {
-      console.error('Failed to convert plant:', err);
-      showToast('Failed to convert plant', 'error');
+      console.error('Failed to remove plant:', err);
+      showToast($t('importFailed'), 'error');
     }
   }
 
@@ -250,7 +250,7 @@
             <p class="health-ok">✓ {$t('healthAllGood')}</p>
           {:else}
             <div class="health-issues">
-              {#each $plantHealth.issues as issue}
+              {#each $plantHealth.issues as issue, _i (issue.ruleId)}
                 <div class="health-issue {issue.overdue ? 'issue-overdue' : 'issue-pending'}">
                   <span class="issue-icon">{issue.action === 'spray' ? '💨' : issue.action === 'prune' ? '✂️' : '💧'}</span>
                   <div class="issue-body">
@@ -287,7 +287,7 @@
 
       {#if $plantEvents.length > 0}
         <div class="timeline">
-          {#each $plantEvents as event}
+          {#each $plantEvents as event (event.id)}
             {@const eventType = getEventType(event.eventType)}
             <div class="timeline-item">
               {#if editingEventId === event.id}

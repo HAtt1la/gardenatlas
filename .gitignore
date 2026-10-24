@@ -50,3 +50,6 @@ Thumbs.db
 .Trashes
 
 CLAUDE.md
+agent.md
+.opencode
+svelte.json
