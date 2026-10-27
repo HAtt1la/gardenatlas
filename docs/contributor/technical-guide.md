@@ -336,8 +336,15 @@ barely readable on a phone. Two-part fix:
     (anchored at the cursor), double-click/double-tap (toggle 1 ↔ 2.4×),
     +/−/⌖ buttons (`zoomBy`, `resetView`), zoom clamped 0.5–4×;
   - one-finger pan: horizontal only at zoom 1 in normal mode (vertical page
-    scrolling is kept via `touch-action: pan-y`), full pan while zoomed or
-    arranging (`touch-action: none` when `editMode || zoom > 1`);
+    scrolling is kept via `touch-action: pan-y`), full pan while zoomed
+    (`.zoomed` switches the svg to `touch-action: none`);
+  - Arrange mode does **not** lock the page: the svg keeps `touch-action:
+    pan-y` and each draggable card sets `touch-action: none`, so card drags
+    are never hijacked by scrolling while empty areas scroll normally;
+  - while a plant drag is active, moving the pointer into the top/bottom
+    56 px of the viewport auto-scrolls the page (rAF loop, speed ramps with
+    proximity) and a window `scroll` listener re-evaluates `hoverHex`, so
+    plants can be dropped into sections that were off-screen at drag start;
   - plant drags take precedence: a second finger while dragging is ignored;
     pan/pinch set `suppressClickUntil` so a pan never triggers navigation or
     the add-plant modal, and a double-tap guard keeps double-tap zoom from

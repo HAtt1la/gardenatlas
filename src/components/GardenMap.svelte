@@ -45,6 +45,13 @@
   let panInfo = null;                  // { id, startX, startY, vx0, vy0, moved }
   let pinch = null;                    // { d0, z0, wx, wy, rect }
 
+  // Edge auto-scroll: while a plant is being dragged past the top or bottom
+  // viewport edge, the page keeps scrolling so far sections stay reachable.
+  let lastPointerClient = null;        // finger position during an active drag
+  let dragScrollRaf = 0;               // auto-scroll animation frame handle
+  const AUTO_SCROLL_BAND = 56;         // px margin at viewport top/bottom
+  const AUTO_SCROLL_SPEED = 18;        // max px scrolled per frame
+
   $: safePlants = $plants ?? [];
 
   $: sectionPlantsMap = (() => {
@@ -114,7 +121,16 @@
     const onWheel = (e) => handleWheel(e);
     // non-passive so we can preventDefault and take over ctrl+wheel zoom
     svgEl?.addEventListener('wheel', onWheel, { passive: false });
-    return () => svgEl?.removeEventListener('wheel', onWheel);
+    // keep the snap preview under the finger when the page scrolls during a drag
+    const onScroll = () => {
+      if (dragging?.moved && lastPointerClient) updateHoverHex(lastPointerClient);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      svgEl?.removeEventListener('wheel', onWheel);
+      window.removeEventListener('scroll', onScroll);
+      stopDragAutoScroll();
+    };
   });
 
   onMount(async () => {
@@ -296,6 +312,46 @@
     if (Math.abs(du) > 2 || (canPanY && Math.abs(dv) > 2)) panInfo.moved = true;
   }
 
+  /** Re-evaluate the snap target for the given finger position (world → hex). */
+  function updateHoverHex(client) {
+    const hit = svgPointToHex(eventToSvg(dragging.svg, client.x, client.y));
+    if (!hit) {
+      hoverHex = null;
+      return;
+    }
+    const free = !isOccupied(hit.layout.section.instanceId, hit.q, hit.r, dragging.plant.id);
+    hoverHex = { ...axialToPixel(hit.q, hit.r), q: hit.q, r: hit.r, free, layout: hit.layout };
+  }
+
+  function dragAutoScrollFrame() {
+    if (!dragging || !dragging.moved || !lastPointerClient) {
+      dragScrollRaf = 0;
+      return;
+    }
+    const y = lastPointerClient.y;
+    const h = window.innerHeight;
+    let dy = 0;
+    if (y < AUTO_SCROLL_BAND) {
+      dy = -Math.round(AUTO_SCROLL_SPEED * (1 - y / AUTO_SCROLL_BAND));
+    } else if (h - y < AUTO_SCROLL_BAND) {
+      dy = Math.round(AUTO_SCROLL_SPEED * (1 - (h - y) / AUTO_SCROLL_BAND));
+    }
+    if (dy !== 0) window.scrollBy(0, dy);
+    dragScrollRaf = requestAnimationFrame(dragAutoScrollFrame);
+  }
+
+  function ensureDragAutoScroll() {
+    if (!dragScrollRaf) dragScrollRaf = requestAnimationFrame(dragAutoScrollFrame);
+  }
+
+  function stopDragAutoScroll() {
+    if (dragScrollRaf) {
+      cancelAnimationFrame(dragScrollRaf);
+      dragScrollRaf = 0;
+    }
+    lastPointerClient = null;
+  }
+
   function handleSvgPointerMove(event) {
     const entry = pointers.get(event.pointerId);
     if (entry) {
@@ -309,14 +365,10 @@
           Math.abs(event.clientX - start.x) <= DRAG_THRESHOLD &&
           Math.abs(event.clientY - start.y) <= DRAG_THRESHOLD) return;
       dragging.moved = true;
+      lastPointerClient = { x: event.clientX, y: event.clientY };
 
-      const hit = svgPointToHex(eventToSvg(dragging.svg, event.clientX, event.clientY));
-      if (!hit) {
-        hoverHex = null;
-        return;
-      }
-      const free = !isOccupied(hit.layout.section.instanceId, hit.q, hit.r, dragging.plant.id);
-      hoverHex = { ...axialToPixel(hit.q, hit.r), q: hit.q, r: hit.r, free, layout: hit.layout };
+      updateHoverHex(event);
+      ensureDragAutoScroll();
       return;
     }
 
@@ -346,6 +398,7 @@
     if (event.pointerId !== dragging.pointerId) return; // a stray finger lifted
     const { plant, moved } = dragging;
     dragging = null;
+    stopDragAutoScroll();
 
     if (!moved) return; // simple press — nothing to do
     // ignore the synthetic click that follows the pointerup
@@ -386,6 +439,7 @@
     if (panInfo && panInfo.id === event.pointerId) panInfo = null;
     if (dragging && event.pointerId === dragging.pointerId) {
       dragging = null;
+      stopDragAutoScroll();
       hoverHex = null;
     }
   }
@@ -412,7 +466,7 @@
     if (event.key !== 'Escape') return;
     if (addingAt) { addingAt = null; return; }
     if (sheetSection) { sheetSection = null; return; }
-    if (dragging) { dragging = null; hoverHex = null; return; }
+    if (dragging) { dragging = null; stopDragAutoScroll(); hoverHex = null; return; }
     if (view.zoom !== 1) { resetView(); return; }
     if (editMode) editMode = false;
   }
@@ -428,6 +482,7 @@
   function toggleEditMode() {
     editMode = !editMode;
     dragging = null;
+    stopDragAutoScroll();
     hoverHex = null;
   }
 </script>
@@ -603,9 +658,8 @@
     touch-action: pan-y; /* page scrolls vertically; horizontal drag + pinch come to us */
   }
 
-  .garden-svg.editing,
   .garden-svg.zoomed {
-    touch-action: none; /* we own all pointer gestures now */
+    touch-action: none; /* once zoomed in, one finger pans the map freely */
   }
 
   .garden-svg.editing {
@@ -634,8 +688,11 @@
   .plant-marker:focus { outline: none; }
   .plant-marker:focus :global(path:first-of-type) { stroke: #2d5a27; stroke-width: 2; }
 
+  /* Arrange mode: only the cards opt out of page scrolling, so drags are
+     never hijacked while the page stays scrollable everywhere else */
   .plant-marker.draggable {
     cursor: grab;
+    touch-action: none;
   }
 
   .plant-marker.drag-source {
