@@ -68,7 +68,7 @@ Each card shows:
 The map is larger than the screen, so you can:
 
 - **Pinch to zoom** in and out (0.5× to 4×), or use the **+ / −** buttons at the bottom-right
-- **Drag the map to pan** - at normal zoom swipe horizontally; once zoomed in or while arranging, swipe in any direction
+- **Drag the map to pan** - at normal zoom swipe horizontally; once zoomed in, swipe in any direction (vertical swipes on empty areas scroll the page as usual)
 - **Double-tap** to zoom in, double-tap again to zoom back out
 - **⌖ button** resets the view
 - **ESC** also resets the view on desktop
@@ -99,6 +99,8 @@ Tap **Save** to apply changes.
 Tap the **✏️ Arrange** button above the map to enter arrange mode (the button turns green, showing ✓ Done):
 
 - **Drag a plant** to any hexagon - even one in another section. If the target spot is already taken, the plant snaps to the nearest free spot
+- **Drag to the top or bottom edge** of the screen during a long drag - the page auto-scrolls, so sections that were off-screen when the drag started are reachable too
+- **Scroll normally** by swiping on empty areas - arrange mode never locks the page
 - **Tap an empty hexagon** to open a form for a new plant at exactly that spot
 - Tap **✓ Done** to leave arrange mode
 

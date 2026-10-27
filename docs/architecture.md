@@ -171,7 +171,7 @@ Plant hex card layers (bottom to top):
 Interactions:
 - **Arrange mode** (edit toggle above the map): pointer drag & drop with green/red snap highlight; drops on occupied hexes snap to the nearest free hex (`findFreeHex()`); cross-section moves allowed; tapping an empty hex opens `AddPlantInline`
 - **Normal mode**: tapping a card navigates to the plant detail
-- **Zoom & pan**: pinch (0.5–4× anchored under the fingers), ctrl+wheel at the cursor, double-tap toggle, floating +/−/reset buttons; one-finger pan (horizontal at zoom 1, free while zoomed or arranging); plant drags take precedence over pan/pinch
+- **Zoom & pan**: pinch (0.5–4× anchored under the fingers), ctrl+wheel at the cursor, double-tap toggle, floating +/−/reset buttons; one-finger pan (horizontal at zoom 1, free while zoomed); plant drags take precedence over pan/pinch. While arranging, the page stays scrollable - only the draggable cards opt out of touch gestures, and the pointer auto-scrolls the page at the viewport edges during a drag
 
 ---
 
