@@ -131,7 +131,7 @@ Plant `type` values: `grape`, `fruit`, `raspberry`, `bed`, `other`.
 
 ## Versioning
 
-Follows semver. Current version: **2.0.0**
+Follows semver. Current version: **2.0.1**
 
 - **PATCH** - bug fixes, UI tweaks
 - **MINOR** - new user-visible features
